@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Database, KeyRound, Settings2 } from 'lucide-react';
+import { Database, KeyRound, RefreshCw, Settings2 } from 'lucide-react';
 import { ApiSettingsModal } from './components/ApiSettingsModal';
 import { CastSplitView } from './components/CastSplitView';
 import { ScoreHero } from './components/ScoreHero';
@@ -44,6 +44,7 @@ export function App() {
   const [selectedEvalYear, setSelectedEvalYear] = useState<number | null>(null);
 
   const [isLoadingWork, setIsLoadingWork] = useState(false);
+  const [isRefreshingCatalog, setIsRefreshingCatalog] = useState(false);
   const [statusNotice, setStatusNotice] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -58,39 +59,40 @@ export function App() {
   const [tmdbKey, setTmdbKey] = useState<string>(() => getStoredTmdbKey());
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const activeRequestIdRef = useRef(0);
+  const activeWorkIdRef = useRef(activeWork.id);
+  activeWorkIdRef.current = activeWork.id;
 
   const refreshCatalogState = useCallback(() => {
     setCatalogWorks(getPersistentCatalog());
   }, []);
 
   /**
-   * After loading a cached entry, checks the Wikidata API (and TMDB API if configured)
-   * to see if any cached information needs to be updated, and updates the entry if necessary.
+   * Queries the configured APIs (Wikidata/Wikipedia/TVMaze and TMDB if configured)
+   * for a cached catalog entry to retrieve any additional or updated information.
    */
-  const checkAndUpdateCachedWork = useCallback(
+  const fetchFreshWorkFromApis = useCallback(
     async (
       cachedWork: CatalogMediaWork,
-      requestId: number,
       itemHint?: Partial<SearchResultItem>
-    ) => {
-      try {
-        let fetchedWork: MediaWork | null = null;
-        const candidateQid =
-          cachedWork.wikidataId ||
-          itemHint?.wikidataId ||
-          (cachedWork.id.startsWith('Q') || cachedWork.id.startsWith('tvmaze-')
-            ? cachedWork.id
-            : undefined);
+    ): Promise<MediaWork | null> => {
+      let fetchedWork: MediaWork | null = null;
+      const candidateQid =
+        cachedWork.wikidataId ||
+        itemHint?.wikidataId ||
+        (cachedWork.id.startsWith('Q') || cachedWork.id.startsWith('tvmaze-')
+          ? cachedWork.id
+          : undefined);
 
-        if (candidateQid) {
-          try {
-            fetchedWork = await fetchWikidataWork(candidateQid);
-          } catch {
-            fetchedWork = null;
-          }
+      if (candidateQid) {
+        try {
+          fetchedWork = await fetchWikidataWork(candidateQid);
+        } catch {
+          fetchedWork = null;
         }
+      }
 
-        if (!fetchedWork) {
+      if (!fetchedWork) {
+        try {
           const wdMatches = await searchWikidataMedia(cachedWork.title);
           const matchingWd = wdMatches.find(
             (w) =>
@@ -103,39 +105,56 @@ export function App() {
                 Math.abs(w.releaseYear - cachedWork.releaseYear) <= 1)
           );
           if (matchingWd) {
-            try {
-              fetchedWork = await fetchWikidataWork(
-                matchingWd.wikidataId || matchingWd.id
-              );
-            } catch {
-              fetchedWork = null;
-            }
+            fetchedWork = await fetchWikidataWork(
+              matchingWd.wikidataId || matchingWd.id
+            );
           }
+        } catch {
+          fetchedWork = null;
         }
+      }
 
-        if (!fetchedWork && tmdbKey && (cachedWork.tmdbId || itemHint?.tmdbId)) {
-          const tid = cachedWork.tmdbId || itemHint?.tmdbId;
-          if (tid) {
-            try {
-              fetchedWork = await fetchTmdbWork(
-                cachedWork.mediaType,
-                tid,
-                tmdbKey
-              );
-            } catch {
-              fetchedWork = null;
-            }
-          }
-        }
-
-        if (tmdbKey) {
-          const baseToEnrich = fetchedWork || cachedWork;
+      if (!fetchedWork && tmdbKey && (cachedWork.tmdbId || itemHint?.tmdbId)) {
+        const tid = cachedWork.tmdbId || itemHint?.tmdbId;
+        if (tid) {
           try {
-            fetchedWork = await enrichWorkWithTmdb(baseToEnrich, tmdbKey);
+            fetchedWork = await fetchTmdbWork(
+              cachedWork.mediaType,
+              tid,
+              tmdbKey
+            );
           } catch {
-            // keep fetchedWork
+            fetchedWork = null;
           }
         }
+      }
+
+      if (tmdbKey) {
+        const baseToEnrich = fetchedWork || cachedWork;
+        try {
+          fetchedWork = await enrichWorkWithTmdb(baseToEnrich, tmdbKey);
+        } catch {
+          // keep fetchedWork
+        }
+      }
+
+      return fetchedWork;
+    },
+    [tmdbKey]
+  );
+
+  /**
+   * After loading a cached entry, checks the Wikidata API (and TMDB API if configured)
+   * to see if any cached information needs to be updated, and updates the entry if necessary.
+   */
+  const checkAndUpdateCachedWork = useCallback(
+    async (
+      cachedWork: CatalogMediaWork,
+      requestId: number,
+      itemHint?: Partial<SearchResultItem>
+    ) => {
+      try {
+        const fetchedWork = await fetchFreshWorkFromApis(cachedWork, itemHint);
 
         if (!fetchedWork) {
           if (activeRequestIdRef.current === requestId) {
@@ -178,8 +197,77 @@ export function App() {
         }
       }
     },
-    [tmdbKey, refreshCatalogState]
+    [tmdbKey, refreshCatalogState, fetchFreshWorkFromApis]
   );
+
+  /**
+   * Refreshes all cached entries in the catalog by checking each title against the configured APIs
+   * and merging any additional or updated information into the persistent local catalog.
+   */
+  const handleRefreshAllCatalog = useCallback(async () => {
+    if (isRefreshingCatalog) return;
+    setIsRefreshingCatalog(true);
+    setErrorMsg(null);
+
+    const allCached = getPersistentCatalog();
+    let updatedTitlesCount = 0;
+    let addedActorsTotal = 0;
+
+    try {
+      for (let i = 0; i < allCached.length; i++) {
+        const entry = allCached[i];
+        setStatusNotice(
+          `Refreshing catalog (${i + 1}/${allCached.length}): checking "${entry.title}" against ${
+            tmdbKey ? 'Wikidata + TMDB APIs' : 'Wikidata API'
+          }...`
+        );
+
+        try {
+          const freshWork = await fetchFreshWorkFromApis(entry);
+          if (freshWork) {
+            const checkResult = updateCachedWorkIfChanged(
+              entry,
+              freshWork,
+              Boolean(tmdbKey)
+            );
+            if (checkResult.updated) {
+              updatedTitlesCount += 1;
+              addedActorsTotal += checkResult.addedActorsCount;
+              refreshCatalogState();
+              if (
+                activeWorkIdRef.current === entry.id ||
+                activeWorkIdRef.current === checkResult.work.id
+              ) {
+                setQueryTimestamp(new Date());
+                setActiveWork(checkResult.work);
+              }
+            }
+          }
+        } catch {
+          // continue refreshing remaining catalog entries
+        }
+      }
+
+      refreshCatalogState();
+      setStatusNotice(
+        updatedTitlesCount > 0
+          ? `Catalog refresh complete: checked ${allCached.length} cached titles against ${
+              tmdbKey ? 'Wikidata + TMDB APIs' : 'Wikidata API'
+            } and updated ${updatedTitlesCount} ${
+              updatedTitlesCount === 1 ? 'title' : 'titles'
+            }${
+              addedActorsTotal > 0
+                ? ` (+${addedActorsTotal} additional cast members merged)`
+                : ''
+            }.`
+          : `Catalog refresh complete: all ${allCached.length} cached titles are up to date with ${
+              tmdbKey ? 'Wikidata + TMDB APIs' : 'Wikidata API'
+            }.`
+      );
+    } finally {
+      setIsRefreshingCatalog(false);
+    }
+  }, [isRefreshingCatalog, tmdbKey, fetchFreshWorkFromApis, refreshCatalogState]);
 
   // Check initial cached entry against the API on mount
   useEffect(() => {
@@ -428,6 +516,25 @@ export function App() {
             <Database size={13} />
             <span>{catalogWorks.length} Cached in Catalog</span>
           </span>
+
+          <button
+            type="button"
+            id="refresh-all-catalog-btn"
+            className="source-indicator"
+            onClick={handleRefreshAllCatalog}
+            disabled={isRefreshingCatalog}
+            title="Check all cached titles against the configured APIs and merge any updated or additional information into the catalog"
+          >
+            <RefreshCw
+              size={13}
+              style={
+                isRefreshingCatalog
+                  ? { animation: 'spin 0.8s linear infinite' }
+                  : undefined
+              }
+            />
+            <span>Refresh Catalog</span>
+          </button>
 
           <button
             type="button"
