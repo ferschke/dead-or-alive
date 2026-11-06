@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -14,12 +14,12 @@ concurrency:
   group: 'pages'
   cancel-in-progress: true
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build-and-deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,16 +34,33 @@ jobs:
         run: npm ci
 
       - name: Build production bundle
-        run: npm run build
+        run: |
+          npm run build
+          touch dist/.nojekyll
 
-      - name: Setup Pages
+      - name: Deploy to gh-pages branch
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C dist init -b gh-pages
+          git -C dist add -A
+          git -C dist commit -m "Deploy Dead or Alive to GitHub Pages"
+          git -C dist push -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" gh-pages:gh-pages
+
+      - name: Configure GitHub Pages (Actions mode)
+        id: pages_config
+        continue-on-error: true
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
-      - name: Upload artifact
+      - name: Upload Pages artifact
+        if: steps.pages_config.outcome == 'success'
         uses: actions/upload-pages-artifact@v3
         with:
           path: './dist'
 
-      - name: Deploy to GitHub Pages
+      - name: Deploy to GitHub Pages (Actions mode)
+        if: steps.pages_config.outcome == 'success'
         id: deployment
         uses: actions/deploy-pages@v4
