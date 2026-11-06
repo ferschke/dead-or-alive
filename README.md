@@ -1,4 +1,4 @@
-# Dead or Alive — Film & Television Cast Vitality Ledger
+# Dead or Alive
 
 A reactive web application built with **Vite + React + TypeScript** that lets you enter the title of any movie or television show and determines how many of its credited actors are still alive at the exact moment your query is submitted.
 
