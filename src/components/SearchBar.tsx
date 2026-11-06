@@ -111,8 +111,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     }
   };
 
-  const featuredPresets = catalogWorks.slice(0, 12);
-
   return (
     <section className="search-section" aria-label="Search Movie or Show">
       <div className="search-headline-row">
@@ -321,31 +319,8 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         </div>
       )}
 
-      {/* Quick-Select Strip + Persistent Local Catalog Selector */}
+      {/* Persistent Local Catalog Selector */}
       <div className="preset-strip" aria-label="Local Catalog">
-        <span className="preset-label">Quick Select:</span>
-        {featuredPresets.map((work) => (
-          <button
-            key={work.id}
-            type="button"
-            id={`preset-work-${work.id}`}
-            className={`preset-chip ${
-              activeWorkId === work.id ? 'selected' : ''
-            }`}
-            onClick={() => {
-              setQuery('');
-              setSubmittedMatches([]);
-              setIsOpen(false);
-              onSelectCatalogId(work.id);
-            }}
-          >
-            <span>{work.title}</span>
-            {work.releaseYear && (
-              <span className="preset-chip-year">{work.releaseYear}</span>
-            )}
-          </button>
-        ))}
-
         <div
           style={{
             display: 'inline-flex',

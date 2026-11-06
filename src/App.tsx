@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Database, KeyRound, Settings2 } from 'lucide-react';
 import { ApiSettingsModal } from './components/ApiSettingsModal';
 import { CastSplitView } from './components/CastSplitView';
@@ -11,6 +11,7 @@ import {
   getPersistentCatalog,
   removeUserCachedWork,
   scoreTitleRelevance,
+  updateCachedWorkIfChanged,
   type CatalogMediaWork,
 } from './services/catalogStorage';
 import {
@@ -56,9 +57,138 @@ export function App() {
 
   const [tmdbKey, setTmdbKey] = useState<string>(() => getStoredTmdbKey());
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const activeRequestIdRef = useRef(0);
 
   const refreshCatalogState = useCallback(() => {
     setCatalogWorks(getPersistentCatalog());
+  }, []);
+
+  /**
+   * After loading a cached entry, checks the Wikidata API (and TMDB API if configured)
+   * to see if any cached information needs to be updated, and updates the entry if necessary.
+   */
+  const checkAndUpdateCachedWork = useCallback(
+    async (
+      cachedWork: CatalogMediaWork,
+      requestId: number,
+      itemHint?: Partial<SearchResultItem>
+    ) => {
+      try {
+        let fetchedWork: MediaWork | null = null;
+        const candidateQid =
+          cachedWork.wikidataId ||
+          itemHint?.wikidataId ||
+          (cachedWork.id.startsWith('Q') || cachedWork.id.startsWith('tvmaze-')
+            ? cachedWork.id
+            : undefined);
+
+        if (candidateQid) {
+          try {
+            fetchedWork = await fetchWikidataWork(candidateQid);
+          } catch {
+            fetchedWork = null;
+          }
+        }
+
+        if (!fetchedWork) {
+          const wdMatches = await searchWikidataMedia(cachedWork.title);
+          const matchingWd = wdMatches.find(
+            (w) =>
+              (w.wikidataId ||
+                w.id.startsWith('Q') ||
+                w.id.startsWith('tvmaze-')) &&
+              w.title.toLowerCase() === cachedWork.title.toLowerCase() &&
+              (!cachedWork.releaseYear ||
+                !w.releaseYear ||
+                Math.abs(w.releaseYear - cachedWork.releaseYear) <= 1)
+          );
+          if (matchingWd) {
+            try {
+              fetchedWork = await fetchWikidataWork(
+                matchingWd.wikidataId || matchingWd.id
+              );
+            } catch {
+              fetchedWork = null;
+            }
+          }
+        }
+
+        if (!fetchedWork && tmdbKey && (cachedWork.tmdbId || itemHint?.tmdbId)) {
+          const tid = cachedWork.tmdbId || itemHint?.tmdbId;
+          if (tid) {
+            try {
+              fetchedWork = await fetchTmdbWork(
+                cachedWork.mediaType,
+                tid,
+                tmdbKey
+              );
+            } catch {
+              fetchedWork = null;
+            }
+          }
+        }
+
+        if (tmdbKey) {
+          const baseToEnrich = fetchedWork || cachedWork;
+          try {
+            fetchedWork = await enrichWorkWithTmdb(baseToEnrich, tmdbKey);
+          } catch {
+            // keep fetchedWork
+          }
+        }
+
+        if (!fetchedWork) {
+          if (activeRequestIdRef.current === requestId) {
+            setStatusNotice(
+              `Loaded "${cachedWork.title}" (${cachedWork.cast.length} actors) from persistent local catalog.`
+            );
+          }
+          return;
+        }
+
+        const checkResult = updateCachedWorkIfChanged(
+          cachedWork,
+          fetchedWork,
+          Boolean(tmdbKey)
+        );
+
+        if (checkResult.updated) {
+          refreshCatalogState();
+          if (activeRequestIdRef.current === requestId) {
+            setQueryTimestamp(new Date());
+            setActiveWork(checkResult.work);
+            setStatusNotice(
+              `Loaded "${checkResult.work.title}" from cache and updated with latest ${
+                tmdbKey ? 'Wikidata + TMDB' : 'Wikidata'
+              } API data (${checkResult.work.cast.length} actors).`
+            );
+          }
+        } else if (activeRequestIdRef.current === requestId) {
+          setStatusNotice(
+            `Loaded "${cachedWork.title}" (${cachedWork.cast.length} actors) from persistent local catalog — verified up to date with ${
+              tmdbKey ? 'Wikidata + TMDB APIs' : 'Wikidata API'
+            }.`
+          );
+        }
+      } catch {
+        if (activeRequestIdRef.current === requestId) {
+          setStatusNotice(
+            `Loaded "${cachedWork.title}" (${cachedWork.cast.length} actors) from persistent local catalog.`
+          );
+        }
+      }
+    },
+    [tmdbKey, refreshCatalogState]
+  );
+
+  // Check initial cached entry against the API on mount
+  useEffect(() => {
+    const initialCached = getPersistentCatalog()[0];
+    if (initialCached) {
+      const reqId = ++activeRequestIdRef.current;
+      void checkAndUpdateCachedWork(initialCached, reqId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSaveTmdbKey = useCallback(
@@ -129,6 +259,7 @@ export function App() {
 
   const handleSelectResult = useCallback(
     async (item: SearchResultItem) => {
+      const reqId = ++activeRequestIdRef.current;
       setErrorMsg(null);
       setStatusNotice(null);
       setSelectedEvalYear(null);
@@ -143,22 +274,14 @@ export function App() {
         releaseYear: item.releaseYear,
       });
 
-      // If user-cached in localStorage and no additional TMDB enrichment needed, display immediately
-      if (
-        cachedMatch &&
-        cachedMatch.isUserCached &&
-        (!tmdbKey || cachedMatch.hasTmdbEnrichment)
-      ) {
-        setActiveWork(cachedMatch);
-        setStatusNotice(
-          `Loaded "${cachedMatch.title}" (${cachedMatch.cast.length} actors) from persistent local catalog.`
-        );
-        return;
-      }
-
-      // If cached in seed catalog, show it immediately while enriching from Wikidata/TMDB
+      // If entry is in the local catalog, display it immediately and always check the API for updates
       if (cachedMatch) {
         setActiveWork(cachedMatch);
+        setStatusNotice(
+          `Loaded "${cachedMatch.title}" (${cachedMatch.cast.length} actors) from persistent local catalog — checking API for updates...`
+        );
+        await checkAndUpdateCachedWork(cachedMatch, reqId, item);
+        return;
       }
 
       setIsLoadingWork(true);
@@ -194,10 +317,6 @@ export function App() {
           }
         }
 
-        if (!fetchedWork && cachedMatch) {
-          fetchedWork = cachedMatch;
-        }
-
         if (!fetchedWork) {
           throw new Error('Could not retrieve title from Wikidata or TMDB.');
         }
@@ -217,57 +336,47 @@ export function App() {
           Boolean(tmdbKey)
         );
         refreshCatalogState();
-        setQueryTimestamp(new Date());
-        setActiveWork(saved);
-        setStatusNotice(
-          `Retrieved "${saved.title}" (${saved.cast.length} actors) from ${
-            tmdbKey ? 'Wikidata + TMDB APIs' : 'Wikidata API'
-          } and cached in persistent local catalog.`
-        );
+        if (activeRequestIdRef.current === reqId) {
+          setQueryTimestamp(new Date());
+          setActiveWork(saved);
+          setStatusNotice(
+            `Retrieved "${saved.title}" (${saved.cast.length} actors) from ${
+              tmdbKey ? 'Wikidata + TMDB APIs' : 'Wikidata API'
+            } and cached in persistent local catalog.`
+          );
+        }
       } catch {
-        if (cachedMatch) {
-          setActiveWork(cachedMatch);
-        } else {
+        if (activeRequestIdRef.current === reqId) {
           setErrorMsg(
             `Could not retrieve cast data for "${item.title}". Please check your connection or try another title.`
           );
         }
       } finally {
-        setIsLoadingWork(false);
+        if (activeRequestIdRef.current === reqId) {
+          setIsLoadingWork(false);
+        }
       }
     },
-    [tmdbKey, refreshCatalogState]
+    [tmdbKey, refreshCatalogState, checkAndUpdateCachedWork]
   );
 
   const handleSelectCatalogId = useCallback(
     async (id: string) => {
       const found = catalogWorks.find((w) => w.id === id);
       if (!found) return;
+      const reqId = ++activeRequestIdRef.current;
       setErrorMsg(null);
       setSelectedEvalYear(null);
       setActorFilterQuery('');
       setQueryTimestamp(new Date());
       setActiveWork(found);
       setStatusNotice(
-        `Loaded "${found.title}" (${found.cast.length} actors) from persistent local catalog.`
+        `Loaded "${found.title}" (${found.cast.length} actors) from persistent local catalog — checking API for updates...`
       );
 
-      // If TMDB key is configured and this catalog entry hasn't been TMDB-enriched yet, enrich & cache it
-      if (tmdbKey && !found.hasTmdbEnrichment) {
-        try {
-          const enriched = await enrichWorkWithTmdb(found, tmdbKey);
-          const saved = cacheWorkInPersistentCatalog(enriched, true);
-          refreshCatalogState();
-          setActiveWork(saved);
-          setStatusNotice(
-            `Enriched "${saved.title}" with additional TMDB data (${saved.cast.length} actors) and updated persistent catalog.`
-          );
-        } catch {
-          // ignore
-        }
-      }
+      await checkAndUpdateCachedWork(found, reqId);
     },
-    [catalogWorks, tmdbKey, refreshCatalogState]
+    [catalogWorks, checkAndUpdateCachedWork]
   );
 
   const hasVoiceActors = useMemo(

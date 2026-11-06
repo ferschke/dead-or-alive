@@ -229,6 +229,163 @@ export function cacheWorkInPersistentCatalog(
   return toSave;
 }
 
+export interface CacheUpdateCheckResult {
+  updated: boolean;
+  work: CatalogMediaWork;
+  addedActorsCount: number;
+  updatedActorsCount: number;
+}
+
+/**
+ * Compares freshly retrieved API data against a cached entry.
+ * If any actor vitality/metadata or work metadata has new or updated information,
+ * updates the entry in the persistent catalog and returns updated=true.
+ */
+export function updateCachedWorkIfChanged(
+  cachedWork: CatalogMediaWork,
+  freshWork: MediaWork,
+  hasTmdbEnrichment = false
+): CacheUpdateCheckResult {
+  const norm = (s: string) =>
+    s
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toLowerCase();
+
+  const mergedCast: RawActorRecord[] = cachedWork.cast.map((a) => ({ ...a }));
+  const byName = new Map<string, RawActorRecord>();
+  const byWikidataId = new Map<string, RawActorRecord>();
+
+  for (const actor of mergedCast) {
+    if (actor.name) byName.set(norm(actor.name), actor);
+    if (actor.wikidataId) byWikidataId.set(actor.wikidataId, actor);
+  }
+
+  let addedActorsCount = 0;
+  let updatedActorsCount = 0;
+
+  for (const apiActor of freshWork.cast) {
+    if (!apiActor?.name) continue;
+    const key = norm(apiActor.name);
+    const existing =
+      (apiActor.wikidataId ? byWikidataId.get(apiActor.wikidataId) : undefined) ||
+      byName.get(key);
+
+    if (existing) {
+      let actorChanged = false;
+      if (apiActor.deathDate && apiActor.deathDate !== existing.deathDate) {
+        existing.deathDate = apiActor.deathDate;
+        existing.deathPrecision =
+          apiActor.deathPrecision || existing.deathPrecision;
+        actorChanged = true;
+      }
+      if (apiActor.birthDate && apiActor.birthDate !== existing.birthDate) {
+        existing.birthDate = apiActor.birthDate;
+        existing.birthPrecision =
+          apiActor.birthPrecision || existing.birthPrecision;
+        actorChanged = true;
+      }
+      if (apiActor.character && !existing.character) {
+        existing.character = apiActor.character;
+        actorChanged = true;
+      }
+      if (apiActor.imageUrl && !existing.imageUrl) {
+        existing.imageUrl = apiActor.imageUrl;
+        actorChanged = true;
+      }
+      if (apiActor.wikipediaUrl && !existing.wikipediaUrl) {
+        existing.wikipediaUrl = apiActor.wikipediaUrl;
+        actorChanged = true;
+      }
+      if (apiActor.wikidataId && !existing.wikidataId) {
+        existing.wikidataId = apiActor.wikidataId;
+        byWikidataId.set(apiActor.wikidataId, existing);
+        actorChanged = true;
+      }
+      if (actorChanged) {
+        updatedActorsCount += 1;
+      }
+    } else {
+      const copy: RawActorRecord = {
+        ...apiActor,
+        billingOrder: mergedCast.length + 1,
+      };
+      mergedCast.push(copy);
+      byName.set(key, copy);
+      if (copy.wikidataId) byWikidataId.set(copy.wikidataId, copy);
+      addedActorsCount += 1;
+    }
+  }
+
+  let metadataChanged = false;
+  const nextWork: MediaWork = {
+    ...cachedWork,
+    cast: mergedCast,
+  };
+
+  if (freshWork.wikidataId && !cachedWork.wikidataId) {
+    nextWork.wikidataId = freshWork.wikidataId;
+    metadataChanged = true;
+  }
+  if (freshWork.tmdbId && !cachedWork.tmdbId) {
+    nextWork.tmdbId = freshWork.tmdbId;
+    metadataChanged = true;
+  }
+  if (freshWork.posterUrl && !cachedWork.posterUrl) {
+    nextWork.posterUrl = freshWork.posterUrl;
+    metadataChanged = true;
+  }
+  if (
+    freshWork.directorOrCreator &&
+    freshWork.directorOrCreator !== 'Cast Registry' &&
+    (!cachedWork.directorOrCreator ||
+      cachedWork.directorOrCreator === 'Cast Registry')
+  ) {
+    nextWork.directorOrCreator = freshWork.directorOrCreator;
+    metadataChanged = true;
+  }
+  if (freshWork.description && !cachedWork.description) {
+    nextWork.description = freshWork.description;
+    metadataChanged = true;
+  }
+  if (freshWork.releaseYear && !cachedWork.releaseYear) {
+    nextWork.releaseYear = freshWork.releaseYear;
+    metadataChanged = true;
+  }
+  if (freshWork.endYear && freshWork.endYear !== cachedWork.endYear) {
+    nextWork.endYear = freshWork.endYear;
+    metadataChanged = true;
+  }
+  if (hasTmdbEnrichment && !cachedWork.hasTmdbEnrichment) {
+    metadataChanged = true;
+  }
+
+  const updated =
+    addedActorsCount > 0 || updatedActorsCount > 0 || metadataChanged;
+
+  if (!updated) {
+    return {
+      updated: false,
+      work: cachedWork,
+      addedActorsCount: 0,
+      updatedActorsCount: 0,
+    };
+  }
+
+  const saved = cacheWorkInPersistentCatalog(
+    nextWork,
+    hasTmdbEnrichment || Boolean(cachedWork.hasTmdbEnrichment)
+  );
+
+  return {
+    updated: true,
+    work: saved,
+    addedActorsCount,
+    updatedActorsCount,
+  };
+}
+
 /**
  * Removes a single user-cached work from localStorage.
  */
