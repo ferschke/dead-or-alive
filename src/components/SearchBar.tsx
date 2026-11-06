@@ -117,11 +117,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         <h1 className="search-title">
           How many of the cast are still with us today?
         </h1>
-        <p className="search-lead">
-          Enter any film or television series. Uncached titles are retrieved
-          from the Wikidata API (and enriched with TMDB data if configured) and
-          automatically cached in your persistent local catalog.
-        </p>
       </div>
 
       <div className="search-bar-container" ref={containerRef}>
