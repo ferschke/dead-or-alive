@@ -308,9 +308,6 @@ export function App() {
           <div className="masthead-logo">
             Dead <span>or</span> Alive
           </div>
-          <span className="masthead-subtitle">
-            Film &amp; Television Cast Vitality Ledger
-          </span>
         </div>
 
         <div className="masthead-actions">
