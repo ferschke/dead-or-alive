@@ -39,28 +39,12 @@ jobs:
           touch dist/.nojekyll
 
       - name: Deploy to gh-pages branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git -C dist init -b gh-pages
           git -C dist add -A
           git -C dist commit -m "Deploy Dead or Alive to GitHub Pages"
-          git -C dist push -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" gh-pages:gh-pages
-
-      - name: Configure GitHub Pages (Actions mode)
-        id: pages_config
-        continue-on-error: true
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
-
-      - name: Upload Pages artifact
-        if: steps.pages_config.outcome == 'success'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: './dist'
-
-      - name: Deploy to GitHub Pages (Actions mode)
-        if: steps.pages_config.outcome == 'success'
-        id: deployment
-        uses: actions/deploy-pages@v4
+          git -C dist push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" gh-pages:gh-pages
