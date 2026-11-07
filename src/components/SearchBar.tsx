@@ -317,6 +317,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
       {/* Persistent Local Catalog Selector */}
       <div className="preset-strip" aria-label="Local Catalog">
         <div
+          className="catalog-select-wrap"
           style={{
             display: 'inline-flex',
             alignItems: 'center',
