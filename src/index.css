@@ -2553,15 +2553,20 @@ button {
 
 @media (max-width: 640px) {
   html,
-  body,
+  body {
+    max-width: 100vw;
+    overflow-x: clip;
+  }
+
   #root,
   .app-shell,
   main {
     max-width: 100vw;
-    overflow-x: hidden;
+    overflow: visible;
   }
 
   .app-shell {
+    min-height: 100dvh;
     padding: 0 0.75rem 2.25rem;
   }
 
@@ -2694,7 +2699,10 @@ button {
     width: 100%;
     max-width: calc(100vw - 1rem);
     min-width: 0;
-    overflow-x: hidden;
+  }
+
+  .actor-lookup-modal-card {
+    overflow: visible;
   }
 
   .actor-lookup-search-form {
