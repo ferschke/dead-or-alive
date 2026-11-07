@@ -9,7 +9,7 @@
   <img src="./docs/mapdetails.png" alt="Actor Connections Detail" width="36%" />
 </p>
 
-**Dead or Alive** is a responsive web application built with **Vite + React + TypeScript** that lets you search for any movie or television series and determines how many of its credited cast members are still alive at the exact moment your query is evaluated.
+**Dead or Alive** is a responsive web application built with **Vite + React + TypeScript** that lets you search for any movie or television series and determines how many of its credited cast members are still alive and lets you explore co-starring networks of the cast.
 
 **Live Application:** [https://ferschke.github.io/dead-or-alive/](https://ferschke.github.io/dead-or-alive/)
 
