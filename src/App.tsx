@@ -3,7 +3,6 @@ import {
   AlertTriangle,
   Database,
   KeyRound,
-  RefreshCw,
   Settings2,
   Trash2,
   X,
@@ -15,7 +14,6 @@ import { CastConnectionsSection } from './components/CastConnectionsSection';
 import { CastSplitView } from './components/CastSplitView';
 import { ScoreHero } from './components/ScoreHero';
 import { SearchBar } from './components/SearchBar';
-import { CURATED_WORKS } from './data/curatedWorks';
 import {
   cacheWorkInPersistentCatalog,
   clearAllUserCachedWorks,
@@ -50,13 +48,12 @@ export function App() {
   const [catalogWorks, setCatalogWorks] = useState<CatalogMediaWork[]>(() =>
     getPersistentCatalog()
   );
-  const [activeWork, setActiveWork] = useState<MediaWork>(
-    () => getPersistentCatalog()[0] || CURATED_WORKS[0]
+  const [activeWork, setActiveWork] = useState<MediaWork | null>(
+    () => getPersistentCatalog()[0] || null
   );
   const [queryTimestamp, setQueryTimestamp] = useState<Date>(() => new Date());
 
   const [isLoadingWork, setIsLoadingWork] = useState(false);
-  const [isRefreshingCatalog, setIsRefreshingCatalog] = useState(false);
   const [statusNotice, setStatusNotice] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -76,8 +73,6 @@ export function App() {
   const [tmdbKey, setTmdbKey] = useState<string>(() => getStoredTmdbKey());
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const activeRequestIdRef = useRef(0);
-  const activeWorkIdRef = useRef(activeWork.id);
-  activeWorkIdRef.current = activeWork.id;
 
   const refreshCatalogState = useCallback(() => {
     setCatalogWorks(getPersistentCatalog());
@@ -223,75 +218,6 @@ export function App() {
     [tmdbKey, refreshCatalogState, fetchFreshWorkFromApis]
   );
 
-  /**
-   * Refreshes all cached entries in the catalog by checking each title against the configured APIs
-   * and merging any additional or updated information into the persistent local catalog.
-   */
-  const handleRefreshAllCatalog = useCallback(async () => {
-    if (isRefreshingCatalog) return;
-    setIsRefreshingCatalog(true);
-    setErrorMsg(null);
-
-    const allCached = getPersistentCatalog();
-    let updatedTitlesCount = 0;
-    let addedActorsTotal = 0;
-
-    try {
-      for (let i = 0; i < allCached.length; i++) {
-        const entry = allCached[i];
-        setStatusNotice(
-          `Refreshing catalog (${i + 1}/${allCached.length}): checking "${entry.title}" against ${
-            tmdbKey ? 'Wikidata + TMDB APIs' : 'Wikidata API'
-          }...`
-        );
-
-        try {
-          const freshWork = await fetchFreshWorkFromApis(entry);
-          if (freshWork) {
-            const checkResult = updateCachedWorkIfChanged(
-              entry,
-              freshWork,
-              Boolean(tmdbKey)
-            );
-            if (checkResult.updated) {
-              updatedTitlesCount += 1;
-              addedActorsTotal += checkResult.addedActorsCount;
-              refreshCatalogState();
-              if (
-                activeWorkIdRef.current === entry.id ||
-                activeWorkIdRef.current === checkResult.work.id
-              ) {
-                setQueryTimestamp(new Date());
-                setActiveWork(checkResult.work);
-              }
-            }
-          }
-        } catch {
-          // continue refreshing remaining catalog entries
-        }
-      }
-
-      refreshCatalogState();
-      setStatusNotice(
-        updatedTitlesCount > 0
-          ? `Catalog refresh complete: checked ${allCached.length} cached titles against ${
-              tmdbKey ? 'Wikidata + TMDB APIs' : 'Wikidata API'
-            } and updated ${updatedTitlesCount} ${
-              updatedTitlesCount === 1 ? 'title' : 'titles'
-            }${
-              addedActorsTotal > 0
-                ? ` (+${addedActorsTotal} additional cast members merged)`
-                : ''
-            }.`
-          : `Catalog refresh complete: all ${allCached.length} cached titles are up to date with ${
-              tmdbKey ? 'Wikidata + TMDB APIs' : 'Wikidata API'
-            }.`
-      );
-    } finally {
-      setIsRefreshingCatalog(false);
-    }
-  }, [isRefreshingCatalog, tmdbKey, fetchFreshWorkFromApis, refreshCatalogState]);
-
   // Check initial cached entry against the API on mount
   useEffect(() => {
     const initialCached = getPersistentCatalog()[0];
@@ -306,7 +232,7 @@ export function App() {
     async (key: string) => {
       setStoredTmdbKey(key);
       setTmdbKey(key);
-      if (key.trim()) {
+      if (key.trim() && activeWork) {
         // Enrich current work with TMDB data and cache in persistent catalog
         setIsLoadingWork(true);
         try {
@@ -489,27 +415,33 @@ export function App() {
   );
 
   const hasVoiceActors = useMemo(
-    () => activeWork.cast.some((c) => Boolean(c.isVoice)),
-    [activeWork.cast]
+    () => (activeWork ? activeWork.cast.some((c) => Boolean(c.isVoice)) : false),
+    [activeWork]
   );
 
   const filteredCast = useMemo(() => {
+    if (!activeWork) return [];
     if (includeVoiceActors) return activeWork.cast;
     return activeWork.cast.filter((c) => !c.isVoice);
-  }, [activeWork.cast, includeVoiceActors]);
+  }, [activeWork, includeVoiceActors]);
 
   const analysis = useMemo(
-    () => analyzeCastVitality(filteredCast, queryTimestamp, queryTimestamp),
-    [filteredCast, queryTimestamp]
+    () =>
+      activeWork
+        ? analyzeCastVitality(filteredCast, queryTimestamp, queryTimestamp)
+        : null,
+    [activeWork, filteredCast, queryTimestamp]
   );
 
   const allEvaluatedActors = useMemo(
     () =>
-      [
-        ...analysis.aliveActors,
-        ...analysis.deceasedActors,
-        ...analysis.unknownActors,
-      ].sort((a, b) => a.billingOrder - b.billingOrder),
+      analysis
+        ? [
+            ...analysis.aliveActors,
+            ...analysis.deceasedActors,
+            ...analysis.unknownActors,
+          ].sort((a, b) => a.billingOrder - b.billingOrder)
+        : [],
     [analysis]
   );
 
@@ -545,33 +477,14 @@ export function App() {
 
           <button
             type="button"
-            id="refresh-all-catalog-btn"
-            className="source-indicator"
-            onClick={handleRefreshAllCatalog}
-            disabled={isRefreshingCatalog || catalogWorks.length === 0}
-            title="Check all cached titles against the configured APIs and merge any updated or additional information into the catalog"
-          >
-            <RefreshCw
-              size={13}
-              style={
-                isRefreshingCatalog
-                  ? { animation: 'spin 0.8s linear infinite' }
-                  : undefined
-              }
-            />
-            <span>Refresh Catalog</span>
-          </button>
-
-          <button
-            type="button"
             id="clear-all-catalog-btn"
             className="source-indicator"
             onClick={() => setIsClearCatalogConfirmOpen(true)}
-            disabled={isRefreshingCatalog || catalogWorks.length === 0}
+            disabled={catalogWorks.length === 0}
             title="Clear all locally cached data from the catalog"
           >
             <Trash2 size={13} />
-            <span>Clear Catalog</span>
+            <span>Clear Cache</span>
           </button>
 
           <button
@@ -598,7 +511,7 @@ export function App() {
           onSelectResult={handleSelectResult}
           onSelectCatalogId={handleSelectCatalogId}
           onOpenActorLookup={() => setIsActorLookupOpen(true)}
-          activeWorkId={activeWork.id}
+          activeWorkId={activeWork?.id ?? null}
           isLoadingWork={isLoadingWork}
         />
 
@@ -654,7 +567,7 @@ export function App() {
               local catalog...
             </span>
           </div>
-        ) : (
+        ) : activeWork && analysis ? (
           <>
             <ScoreHero
               work={activeWork}
@@ -687,12 +600,12 @@ export function App() {
               onSelectActor={setSelectedActorForModal}
             />
           </>
-        )}
+        ) : null}
       </main>
 
       <ActorDetailsModals
         actor={selectedActorForModal}
-        currentWorkTitle={activeWork.title}
+        currentWorkTitle={activeWork?.title ?? ''}
         tmdbKey={tmdbKey}
         catalogWorks={catalogWorks}
         onClose={() => setSelectedActorForModal(null)}
@@ -777,6 +690,7 @@ export function App() {
                 onClick={() => {
                   clearAllUserCachedWorks();
                   refreshCatalogState();
+                  setActiveWork(null);
                   setIsClearCatalogConfirmOpen(false);
                   setStatusNotice(
                     'Cleared all locally cached data from the catalog.'
@@ -784,7 +698,7 @@ export function App() {
                 }}
               >
                 <Trash2 size={14} />
-                <span>Clear Catalog</span>
+                <span>Clear Cache</span>
               </button>
             </div>
           </div>
@@ -801,10 +715,15 @@ export function App() {
         onRemoveCachedWork={(id) => {
           removeUserCachedWork(id);
           refreshCatalogState();
+          if (activeWork?.id === id) {
+            const nextCatalog = getPersistentCatalog();
+            setActiveWork(nextCatalog[0] || null);
+          }
         }}
         onClearUserCache={() => {
           clearAllUserCachedWorks();
           refreshCatalogState();
+          setActiveWork(null);
         }}
       />
     </div>

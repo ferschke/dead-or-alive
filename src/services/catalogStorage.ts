@@ -1,8 +1,6 @@
-import { CURATED_WORKS } from '../data/curatedWorks';
 import type { MediaWork, RawActorRecord, SearchResultItem } from '../types/media';
 
-const CATALOG_STORAGE_KEY = 'dead_or_alive_persistent_catalog_v2';
-const CATALOG_WIPED_KEY = 'dead_or_alive_catalog_wiped_v1';
+const CATALOG_STORAGE_KEY = 'dead_or_alive_persistent_catalog_v3';
 
 export interface CatalogMediaWork extends MediaWork {
   aliases?: string[];
@@ -20,17 +18,15 @@ export function loadUserCachedWorks(): CatalogMediaWork[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((w) => w && typeof w.id === 'string' && Array.isArray(w.cast));
+    return parsed.filter(
+      (w) =>
+        w &&
+        typeof w.id === 'string' &&
+        Array.isArray(w.cast) &&
+        w.isUserCached !== false
+    );
   } catch {
     return [];
-  }
-}
-
-function isCatalogWiped(): boolean {
-  try {
-    return localStorage.getItem(CATALOG_WIPED_KEY) === 'true';
-  } catch {
-    return false;
   }
 }
 
@@ -118,42 +114,10 @@ export function mergeCastLists(
 }
 
 /**
- * Returns the complete local catalog combining user-cached works (persisted in localStorage)
- * and the pre-seeded curated catalog (unless the catalog was explicitly wiped by the user).
+ * Returns the persistent local catalog of user-cached works stored in localStorage.
  */
 export function getPersistentCatalog(): CatalogMediaWork[] {
-  const userCached = loadUserCachedWorks();
-  if (isCatalogWiped()) {
-    return [...userCached];
-  }
-
-  const result: CatalogMediaWork[] = [...userCached];
-
-  for (const seed of CURATED_WORKS) {
-    const existingIdx = result.findIndex(
-      (u) =>
-        u.id === seed.id ||
-        (u.wikidataId && seed.wikidataId && u.wikidataId === seed.wikidataId) ||
-        (u.title.toLowerCase() === seed.title.toLowerCase() &&
-          u.releaseYear === seed.releaseYear)
-    );
-    if (existingIdx >= 0) {
-      // Merge seed cast and aliases into user-cached work so no actors are lost
-      result[existingIdx] = {
-        ...seed,
-        ...result[existingIdx],
-        aliases: seed.aliases,
-        cast: mergeCastLists(result[existingIdx].cast, seed.cast),
-      };
-    } else {
-      result.push({
-        ...seed,
-        isUserCached: false,
-      });
-    }
-  }
-
-  return result;
+  return loadUserCachedWorks();
 }
 
 /**
@@ -192,13 +156,6 @@ export function cacheWorkInPersistentCatalog(
   hasTmdbEnrichment = false
 ): CatalogMediaWork {
   const userCached = loadUserCachedWorks();
-  const seedMatch = CURATED_WORKS.find(
-    (s) =>
-      s.id === work.id ||
-      (s.wikidataId && work.wikidataId && s.wikidataId === work.wikidataId) ||
-      (s.title.toLowerCase() === work.title.toLowerCase() &&
-        s.releaseYear === work.releaseYear)
-  );
 
   const existingIdx = userCached.findIndex(
     (u) =>
@@ -209,21 +166,16 @@ export function cacheWorkInPersistentCatalog(
         u.releaseYear === work.releaseYear)
   );
 
-  const baseCast =
+  const finalCast =
     existingIdx >= 0
       ? mergeCastLists(work.cast, userCached[existingIdx].cast)
       : work.cast;
 
-  const finalCast = seedMatch
-    ? mergeCastLists(baseCast, seedMatch.cast)
-    : baseCast;
-
   const toSave: CatalogMediaWork = {
     ...(existingIdx >= 0 ? userCached[existingIdx] : {}),
     ...work,
-    id: seedMatch?.id || work.wikidataId || work.id,
-    wikidataId: work.wikidataId || seedMatch?.wikidataId,
-    aliases: seedMatch?.aliases,
+    id: work.wikidataId || work.id,
+    wikidataId: work.wikidataId,
     cast: finalCast,
     cachedAt: new Date().toISOString(),
     isUserCached: true,
@@ -403,12 +355,7 @@ export function updateCachedWorkIfChanged(
  * Removes a single cached work from the persistent catalog.
  */
 export function removeUserCachedWork(id: string): void {
-  const currentCatalog = getPersistentCatalog().filter((w) => w.id !== id);
-  try {
-    localStorage.setItem(CATALOG_WIPED_KEY, 'true');
-  } catch {
-    // ignore
-  }
+  const currentCatalog = loadUserCachedWorks().filter((w) => w.id !== id);
   saveUserCachedWorks(currentCatalog);
 }
 
@@ -418,7 +365,6 @@ export function removeUserCachedWork(id: string): void {
 export function clearAllUserCachedWorks(): void {
   try {
     localStorage.removeItem(CATALOG_STORAGE_KEY);
-    localStorage.setItem(CATALOG_WIPED_KEY, 'true');
   } catch {
     // ignore
   }

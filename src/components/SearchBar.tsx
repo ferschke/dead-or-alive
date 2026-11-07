@@ -9,7 +9,7 @@ interface SearchBarProps {
   onSelectResult: (item: SearchResultItem) => void;
   onSelectCatalogId: (id: string) => void;
   onOpenActorLookup: () => void;
-  activeWorkId: string;
+  activeWorkId: string | null;
   isLoadingWork: boolean;
 }
 
@@ -362,7 +362,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             className="toolbar-select"
             aria-label="Browse all titles in the persistent local catalog"
             value={
-              catalogWorks.some((w) => w.id === activeWorkId)
+              activeWorkId && catalogWorks.some((w) => w.id === activeWorkId)
                 ? activeWorkId
                 : ''
             }
@@ -380,7 +380,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             </option>
             {catalogWorks.map((w) => (
               <option key={w.id} value={w.id}>
-                {w.isUserCached ? '★ ' : ''}
                 {w.title} ({w.releaseYear || 'N/A'})
               </option>
             ))}
