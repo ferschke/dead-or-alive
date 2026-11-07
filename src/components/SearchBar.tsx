@@ -128,12 +128,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 
   return (
     <section className="search-section" aria-label="Search Movie or Show">
-      <div className="search-headline-row">
-        <h1 className="search-title">
-          How many of the cast are still with us today?
-        </h1>
-      </div>
-
       <div className="search-bar-container" ref={containerRef}>
         <form className="search-form" onSubmit={handleSubmit}>
           <Search
