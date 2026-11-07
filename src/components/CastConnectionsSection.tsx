@@ -94,8 +94,8 @@ function detectMobileDevice(): {
 }
 
 /**
- * Computes a clean, deterministic 2D network layout for all cast members of the current work.
- * Desktop layout parameters remain untouched; mobile layout optimizes ring geometry for portrait screens.
+ * Computes a clean, deterministic 2D network layout for connected cast members of the current work.
+ * Nodes with no connections are excluded from the map.
  */
 function computeNetworkLayout(
   actors: EvaluatedActor[],
@@ -106,23 +106,15 @@ function computeNetworkLayout(
 ): PositionedNode[] {
   const cx = width / 2;
   const cy = height / 2;
-  const count = actors.length;
-  if (count === 0) return [];
+  if (actors.length === 0 || !graph) return [];
 
-  const connectionsMap = graph?.connectionsByActorId || {};
-  const connectedActors: EvaluatedActor[] = [];
-  const unconnectedActors: EvaluatedActor[] = [];
+  const connectionsMap = graph.connectionsByActorId || {};
+  const connectedActors = actors.filter(
+    (actor) => (connectionsMap[actor.id] || []).length > 0
+  );
+  if (connectedActors.length === 0) return [];
 
-  for (const actor of actors) {
-    const conns = connectionsMap[actor.id] || [];
-    if (conns.length > 0) {
-      connectedActors.push(actor);
-    } else {
-      unconnectedActors.push(actor);
-    }
-  }
-
-  // Order connected actors by degree & shared neighbors to minimize long crossings
+  // Order connected actors by degree & billing order to minimize long crossings
   connectedActors.sort((a, b) => {
     const degA = (connectionsMap[a.id] || []).length;
     const degB = (connectionsMap[b.id] || []).length;
@@ -135,37 +127,54 @@ function computeNetworkLayout(
     { x: number; y: number; angle: number; ring: 'inner' | 'outer' | 'single' }
   >();
 
-  if (connectedActors.length > 0 && unconnectedActors.length > 0) {
-    // Dual-ring layout: connected actors in inner ring, unconnected in outer ring
-    const innerRx = isCompactMobile
-      ? Math.min(width * 0.25, 155)
-      : Math.min(width * 0.28, 255);
-    const innerRy = isCompactMobile
-      ? Math.min(height * 0.25, 195)
-      : Math.min(height * 0.28, 175);
+  const singleRingThreshold = isCompactMobile ? 18 : 26;
 
+  if (connectedActors.length <= singleRingThreshold) {
+    const rx = isCompactMobile
+      ? Math.min(width * 0.37, 230)
+      : Math.min(width * 0.37, 345);
+    const ry = isCompactMobile
+      ? Math.min(height * 0.38, 290)
+      : Math.min(height * 0.37, 230);
     connectedActors.forEach((actor, idx) => {
       const angle =
         -Math.PI / 2 + (idx / connectedActors.length) * Math.PI * 2;
-      // Slight radial alternation prevents any 3 nodes from being colinear across center
-      const stagger = idx % 2 === 0 ? 1 : 0.88;
+      const stagger = idx % 2 === 0 ? 1 : 0.9;
       positions.set(actor.id, {
-        x: cx + Math.cos(angle) * innerRx * stagger,
-        y: cy + Math.sin(angle) * innerRy * stagger,
+        x: cx + Math.cos(angle) * rx * stagger,
+        y: cy + Math.sin(angle) * ry * stagger,
+        angle,
+        ring: 'single',
+      });
+    });
+  } else {
+    const innerCount = Math.ceil(connectedActors.length * 0.42);
+    const innerList = connectedActors.slice(0, innerCount);
+    const outerList = connectedActors.slice(innerCount);
+    const innerRx = isCompactMobile
+      ? Math.min(width * 0.24, 150)
+      : Math.min(width * 0.25, 230);
+    const innerRy = isCompactMobile
+      ? Math.min(height * 0.24, 185)
+      : Math.min(height * 0.25, 155);
+    const outerRx = isCompactMobile
+      ? Math.min(width * 0.41, 255)
+      : Math.min(width * 0.42, 390);
+    const outerRy = isCompactMobile
+      ? Math.min(height * 0.41, 315)
+      : Math.min(height * 0.41, 255);
+
+    innerList.forEach((actor, idx) => {
+      const angle = -Math.PI / 2 + (idx / innerList.length) * Math.PI * 2;
+      positions.set(actor.id, {
+        x: cx + Math.cos(angle) * innerRx,
+        y: cy + Math.sin(angle) * innerRy,
         angle,
         ring: 'inner',
       });
     });
-
-    const outerRx = isCompactMobile
-      ? Math.min(width * 0.41, 255)
-      : Math.min(width * 0.43, 395);
-    const outerRy = isCompactMobile
-      ? Math.min(height * 0.41, 315)
-      : Math.min(height * 0.42, 260);
-    unconnectedActors.forEach((actor, idx) => {
-      const angle =
-        -Math.PI / 2 + (idx / unconnectedActors.length) * Math.PI * 2;
+    outerList.forEach((actor, idx) => {
+      const angle = -Math.PI / 2 + (idx / outerList.length) * Math.PI * 2;
       positions.set(actor.id, {
         x: cx + Math.cos(angle) * outerRx,
         y: cy + Math.sin(angle) * outerRy,
@@ -173,68 +182,9 @@ function computeNetworkLayout(
         ring: 'outer',
       });
     });
-  } else {
-    // Single ring (or two concentric rings if cast > 28, or > 20 on compact mobile)
-    const list =
-      connectedActors.length > 0 ? connectedActors : unconnectedActors;
-    const singleRingThreshold = isCompactMobile ? 18 : 26;
-
-    if (list.length <= singleRingThreshold) {
-      const rx = isCompactMobile
-        ? Math.min(width * 0.37, 230)
-        : Math.min(width * 0.37, 345);
-      const ry = isCompactMobile
-        ? Math.min(height * 0.38, 290)
-        : Math.min(height * 0.37, 230);
-      list.forEach((actor, idx) => {
-        const angle = -Math.PI / 2 + (idx / list.length) * Math.PI * 2;
-        const stagger = idx % 2 === 0 ? 1 : 0.9;
-        positions.set(actor.id, {
-          x: cx + Math.cos(angle) * rx * stagger,
-          y: cy + Math.sin(angle) * ry * stagger,
-          angle,
-          ring: 'single',
-        });
-      });
-    } else {
-      const innerCount = Math.ceil(list.length * 0.42);
-      const innerList = list.slice(0, innerCount);
-      const outerList = list.slice(innerCount);
-      const innerRx = isCompactMobile
-        ? Math.min(width * 0.24, 150)
-        : Math.min(width * 0.25, 230);
-      const innerRy = isCompactMobile
-        ? Math.min(height * 0.24, 185)
-        : Math.min(height * 0.25, 155);
-      const outerRx = isCompactMobile
-        ? Math.min(width * 0.41, 255)
-        : Math.min(width * 0.42, 390);
-      const outerRy = isCompactMobile
-        ? Math.min(height * 0.41, 315)
-        : Math.min(height * 0.41, 255);
-
-      innerList.forEach((actor, idx) => {
-        const angle = -Math.PI / 2 + (idx / innerList.length) * Math.PI * 2;
-        positions.set(actor.id, {
-          x: cx + Math.cos(angle) * innerRx,
-          y: cy + Math.sin(angle) * innerRy,
-          angle,
-          ring: 'inner',
-        });
-      });
-      outerList.forEach((actor, idx) => {
-        const angle = -Math.PI / 2 + (idx / outerList.length) * Math.PI * 2;
-        positions.set(actor.id, {
-          x: cx + Math.cos(angle) * outerRx,
-          y: cy + Math.sin(angle) * outerRy,
-          angle,
-          ring: 'outer',
-        });
-      });
-    }
   }
 
-  return actors.map((actor) => {
+  return connectedActors.map((actor) => {
     const pos = positions.get(actor.id) || {
       x: cx,
       y: cy,
@@ -561,16 +511,18 @@ export function CastConnectionsSection({
                 >
                   {isMobileOrTablet ? (
                     <>
-                      All {actors.length} cast members are shown as nodes.{' '}
+                      Showing {connectedActorCount} connected cast{' '}
+                      {connectedActorCount === 1 ? 'member' : 'members'}.{' '}
                       <strong>Tap a node once</strong> to highlight its
                       connections, then <strong>tap it again</strong> to view
                       shared movies &amp; shows.
                     </>
                   ) : (
                     <>
-                      All {actors.length} cast members are shown as nodes. Lines
-                      connect actors who appeared together in another production
-                      (line thickness = number of shared movies or shows).{' '}
+                      Showing {connectedActorCount} connected cast{' '}
+                      {connectedActorCount === 1 ? 'member' : 'members'} who
+                      appeared together in another production (line thickness =
+                      number of shared movies or shows).{' '}
                       <strong>Click any actor node</strong> to view their
                       connected co-stars and shared titles.
                     </>
@@ -589,10 +541,6 @@ export function CastConnectionsSection({
 
             <div className="cast-network-toolbar">
               <div className="cast-network-stats">
-                <span>
-                  <strong>{actors.length}</strong> Cast Nodes
-                </span>
-                <span>·</span>
                 <span>
                   <strong>{connectedActorCount}</strong> Connected Co-Stars
                 </span>
@@ -681,7 +629,16 @@ export function CastConnectionsSection({
                 </div>
               )}
 
-              {isMobileOrTablet && (
+              {!isLoadingGraph && positionedNodes.length === 0 && (
+                <div className="cast-network-loading-overlay">
+                  <span>
+                    No shared movies or TV shows outside of {work.title} were
+                    found among this cast.
+                  </span>
+                </div>
+              )}
+
+              {isMobileOrTablet && positionedNodes.length > 0 && (
                 <div
                   className="mobile-network-zoom-controls"
                   aria-label="Map zoom controls"
@@ -814,7 +771,7 @@ export function CastConnectionsSection({
                   })}
                 </g>
 
-                {/* Actor Nodes Layer */}
+                {/* Actor Nodes Layer (only connected nodes) */}
                 <g className="network-nodes-layer">
                   {renderedNodes.map((node) => {
                     const { actor, x, y, angle, ring, degree } = node;
@@ -830,20 +787,12 @@ export function CastConnectionsSection({
                       !isNeighborOfHighlighted;
 
                     const baseRadius = isCompactViewport
-                      ? actors.length > 35
-                        ? degree > 0
-                          ? 16
-                          : 12.5
-                        : degree > 0
-                        ? 19.5
-                        : 15
-                      : actors.length > 35
-                      ? degree > 0
-                        ? 15
-                        : 12
-                      : degree > 0
-                      ? 19
-                      : 15;
+                      ? positionedNodes.length > 30
+                        ? 16
+                        : 19.5
+                      : positionedNodes.length > 35
+                      ? 15
+                      : 19;
                     const radius = isHighlightedNode
                       ? baseRadius + 3.5
                       : baseRadius;
@@ -885,7 +834,7 @@ export function CastConnectionsSection({
                       isCompactViewport &&
                       !isHighlightedNode &&
                       !isNeighborOfHighlighted &&
-                      actors.length > 18
+                      positionedNodes.length > 18
                         ? formatCompactMobileName(actor.name)
                         : actor.name;
 
@@ -933,31 +882,29 @@ export function CastConnectionsSection({
                           inspect shared movies &amp; shows.
                         </title>
 
-                        {degree > 0 && (
-                          <circle
-                            r={radius + 4}
-                            fill="none"
-                            stroke={
-                              isHighlightedNode
-                                ? '#38bdf8'
-                                : 'rgba(56, 189, 248, 0.28)'
-                            }
-                            strokeWidth={isHighlightedNode ? 2.4 : 1.2}
-                          />
-                        )}
+                        <circle
+                          r={radius + 4}
+                          fill="none"
+                          stroke={
+                            isHighlightedNode
+                              ? '#38bdf8'
+                              : 'rgba(56, 189, 248, 0.28)'
+                          }
+                          strokeWidth={isHighlightedNode ? 2.4 : 1.2}
+                        />
 
                         <circle
                           r={radius}
                           fill={fillColor}
                           stroke={isHighlightedNode ? '#f8fafc' : strokeColor}
-                          strokeWidth={degree > 0 ? 2.4 : 1.6}
+                          strokeWidth={2.4}
                         />
 
                         <text
                           textAnchor="middle"
                           dominantBaseline="central"
                           fill="#f8fafc"
-                          fontSize={actors.length > 35 ? '9.5' : '11'}
+                          fontSize={positionedNodes.length > 35 ? '9.5' : '11'}
                           fontWeight="600"
                           fontFamily="var(--font-sans)"
                           pointerEvents="none"
@@ -965,31 +912,29 @@ export function CastConnectionsSection({
                           {getInitials(actor.name)}
                         </text>
 
-                        {degree > 0 && (
-                          <g
-                            transform={`translate(${radius * 0.72}, ${
-                              -radius * 0.72
-                            })`}
-                            pointerEvents="none"
+                        <g
+                          transform={`translate(${radius * 0.72}, ${
+                            -radius * 0.72
+                          })`}
+                          pointerEvents="none"
+                        >
+                          <circle
+                            r={8}
+                            fill="#0284c7"
+                            stroke="#090b10"
+                            strokeWidth={1.5}
+                          />
+                          <text
+                            textAnchor="middle"
+                            dominantBaseline="central"
+                            fill="#ffffff"
+                            fontSize="8.5"
+                            fontFamily="var(--font-mono)"
+                            fontWeight="600"
                           >
-                            <circle
-                              r={8}
-                              fill="#0284c7"
-                              stroke="#090b10"
-                              strokeWidth={1.5}
-                            />
-                            <text
-                              textAnchor="middle"
-                              dominantBaseline="central"
-                              fill="#ffffff"
-                              fontSize="8.5"
-                              fontFamily="var(--font-mono)"
-                              fontWeight="600"
-                            >
-                              {degree}
-                            </text>
-                          </g>
-                        )}
+                            {degree}
+                          </text>
+                        </g>
 
                         <text
                           x={labelX}
@@ -998,28 +943,20 @@ export function CastConnectionsSection({
                           fill={
                             isHighlightedNode || isNeighborOfHighlighted
                               ? '#ffffff'
-                              : degree > 0
-                              ? '#f3f4f6'
-                              : '#9ca3af'
+                              : '#f3f4f6'
                           }
                           fontSize={
                             isCompactViewport
                               ? isHighlightedNode || isNeighborOfHighlighted
                                 ? '11.5'
-                                : actors.length > 30
+                                : positionedNodes.length > 30
                                 ? '9.5'
                                 : '10.5'
-                              : actors.length > 35
+                              : positionedNodes.length > 35
                               ? '9.5'
                               : '11'
                           }
-                          fontWeight={
-                            isHighlightedNode ||
-                            isNeighborOfHighlighted ||
-                            degree > 0
-                              ? '600'
-                              : '400'
-                          }
+                          fontWeight="600"
                           fontFamily="var(--font-sans)"
                           paintOrder="stroke"
                           stroke="#090b10"
