@@ -518,7 +518,7 @@ export function App() {
         {statusNotice && !errorMsg && (
           <div
             style={{
-              padding: '0.6rem 1rem',
+              padding: '0.65rem 1rem',
               marginBottom: '1rem',
               borderRadius: 'var(--radius-sm)',
               background: 'var(--bg-surface)',
@@ -528,13 +528,37 @@ export function App() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
+              gap: '0.75rem',
             }}
           >
-            <span>{statusNotice}</span>
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.28rem',
+              }}
+            >
+              <span>{statusNotice}</span>
+              {activeWork && !tmdbKey.trim() && (
+                <span
+                  style={{
+                    color: '#ef4444',
+                    fontWeight: 600,
+                  }}
+                >
+                  Warning: Results and statistics might be incomplete without
+                  configuring the TMDB API.
+                </span>
+              )}
+            </div>
             <button
               type="button"
               onClick={() => setStatusNotice(null)}
-              style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}
+              style={{
+                color: 'var(--text-muted)',
+                fontSize: '0.75rem',
+                flexShrink: 0,
+              }}
             >
               Dismiss
             </button>
