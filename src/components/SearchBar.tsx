@@ -30,7 +30,20 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   const [isSearching, setIsSearching] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [isSmallPhone, setIsSmallPhone] = useState<boolean>(() =>
+    typeof window !== 'undefined'
+      ? window.matchMedia('(max-width: 640px)').matches
+      : false
+  );
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 640px)');
+    const handleChange = (e: MediaQueryListEvent) => setIsSmallPhone(e.matches);
+    setIsSmallPhone(mq.matches);
+    mq.addEventListener('change', handleChange);
+    return () => mq.removeEventListener('change', handleChange);
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -123,12 +136,18 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 
       <div className="search-bar-container" ref={containerRef}>
         <form className="search-form" onSubmit={handleSubmit}>
-          <Search size={19} className="search-icon" aria-hidden="true" />
+          <Search
+            size={isSmallPhone ? 16 : 19}
+            className="search-icon"
+            aria-hidden="true"
+          />
           <input
             id="media-title-search-input"
             type="text"
             className="search-input"
-            placeholder="Search movie or TV show"
+            placeholder={
+              isSmallPhone ? 'Movie or show...' : 'Search movie or TV show'
+            }
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
@@ -154,7 +173,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
               }}
               aria-label="Clear search query"
             >
-              <X size={16} />
+              <X size={isSmallPhone ? 14 : 16} />
             </button>
           )}
 
@@ -164,7 +183,13 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             className="search-submit-btn"
             disabled={isSearching || isLoadingWork || !query.trim()}
           >
-            {isSearching || isLoadingWork ? 'Searching...' : 'Search'}
+            {isSearching || isLoadingWork
+              ? isSmallPhone
+                ? '...'
+                : 'Searching...'
+              : isSmallPhone
+              ? 'Go'
+              : 'Search'}
           </button>
 
           <button
@@ -173,8 +198,8 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             className="actor-lookup-trigger-btn"
             onClick={onOpenActorLookup}
           >
-            <UserSearch size={15} />
-            <span>Lookup by actor</span>
+            <UserSearch size={isSmallPhone ? 14 : 15} />
+            <span>{isSmallPhone ? 'By actor' : 'Lookup by actor'}</span>
           </button>
         </form>
 

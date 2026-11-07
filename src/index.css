@@ -2161,24 +2161,6 @@ button {
     line-height: 1.16;
   }
 
-  .search-form {
-    padding: 0.25rem 0.3rem 0.25rem 0.75rem;
-  }
-
-  .search-icon {
-    margin-right: 0.5rem;
-  }
-
-  .search-input {
-    font-size: 1rem; /* 16px prevents iOS Safari auto-zoom on focus */
-    padding: 0.45rem 0;
-  }
-
-  .search-submit-btn {
-    padding: 0.52rem 0.9rem;
-    font-size: 0.83rem;
-  }
-
   .search-dropdown {
     max-height: 60vh;
   }
@@ -2554,11 +2536,6 @@ button {
     width: 96vw;
   }
 
-  .actor-lookup-trigger-btn {
-    padding: 0.52rem 0.72rem;
-    font-size: 0.8rem;
-  }
-
   .actor-lookup-search-form {
     flex-wrap: wrap;
   }
@@ -2571,6 +2548,38 @@ button {
   .actor-filmography-cta-box .cast-connections-open-btn {
     width: 100%;
     justify-content: center;
+  }
+}
+
+@media (max-width: 640px) {
+  .search-form {
+    padding: 0.22rem 0.28rem 0.22rem 0.55rem;
+  }
+
+  .search-icon {
+    margin-right: 0.35rem;
+  }
+
+  .search-input {
+    font-size: 0.94rem;
+    padding: 0.42rem 0;
+  }
+
+  .search-clear-btn {
+    padding: 0.25rem;
+    margin-right: 0.2rem;
+  }
+
+  .search-submit-btn {
+    padding: 0.46rem 0.68rem;
+    font-size: 0.78rem;
+  }
+
+  .actor-lookup-trigger-btn {
+    padding: 0.46rem 0.6rem;
+    font-size: 0.76rem;
+    gap: 0.28rem;
+    margin-left: 0.3rem;
   }
 }
 
