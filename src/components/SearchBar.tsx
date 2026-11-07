@@ -126,7 +126,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             id="media-title-search-input"
             type="text"
             className="search-input"
-            placeholder="Search any movie or TV show (uncached titles are fetched from Wikidata / TMDB & cached)..."
+            placeholder="Search movie or TV show"
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
@@ -162,7 +162,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             className="search-submit-btn"
             disabled={isSearching || isLoadingWork || !query.trim()}
           >
-            {isSearching || isLoadingWork ? 'Retrieving...' : 'Submit Query'}
+            {isSearching || isLoadingWork ? 'Searching...' : 'Search'}
           </button>
         </form>
 
@@ -349,7 +349,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             {catalogWorks.map((w) => (
               <option key={w.id} value={w.id}>
                 {w.isUserCached ? '★ ' : ''}
-                {w.title} ({w.releaseYear || 'N/A'}) — {w.cast.length} actors
+                {w.title} ({w.releaseYear || 'N/A'})
               </option>
             ))}
           </select>
