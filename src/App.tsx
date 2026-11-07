@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Database, KeyRound, RefreshCw, Settings2 } from 'lucide-react';
+import { ActorDetailsModals } from './components/ActorDetailsModals';
 import { ApiSettingsModal } from './components/ApiSettingsModal';
 import { CastConnectionsSection } from './components/CastConnectionsSection';
 import { CastSplitView } from './components/CastSplitView';
@@ -27,6 +28,7 @@ import {
   searchWikidataMedia,
 } from './services/wikidataService';
 import type {
+  EvaluatedActor,
   MediaWork,
   SearchResultItem,
   SortOption,
@@ -55,6 +57,8 @@ export function App() {
   const [highlightedActorId, setHighlightedActorId] = useState<string | null>(
     null
   );
+  const [selectedActorForModal, setSelectedActorForModal] =
+    useState<EvaluatedActor | null>(null);
 
   const [tmdbKey, setTmdbKey] = useState<string>(() => getStoredTmdbKey());
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -654,10 +658,20 @@ export function App() {
               onChangeIncludeVoiceActors={setIncludeVoiceActors}
               hasVoiceActors={hasVoiceActors}
               highlightedActorId={highlightedActorId}
+              onSelectActor={setSelectedActorForModal}
             />
           </>
         )}
       </main>
+
+      <ActorDetailsModals
+        actor={selectedActorForModal}
+        currentWorkTitle={activeWork.title}
+        tmdbKey={tmdbKey}
+        catalogWorks={catalogWorks}
+        onClose={() => setSelectedActorForModal(null)}
+        onSelectWork={handleSelectResult}
+      />
 
       <ApiSettingsModal
         isOpen={isSettingsOpen}

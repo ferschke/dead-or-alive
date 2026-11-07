@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { ExternalLink } from 'lucide-react';
 import type { EvaluatedActor } from '../types/media';
 
 interface ActorCardProps {
   actor: EvaluatedActor;
   isHighlighted?: boolean;
+  onSelectActor?: (actor: EvaluatedActor) => void;
 }
 
 function getInitials(name: string): string {
@@ -17,6 +17,7 @@ function getInitials(name: string): string {
 export const ActorCard: React.FC<ActorCardProps> = ({
   actor,
   isHighlighted = false,
+  onSelectActor,
 }) => {
   const [imgError, setImgError] = useState(false);
   const isAlive = actor.status === 'alive';
@@ -33,6 +34,11 @@ export const ActorCard: React.FC<ActorCardProps> = ({
     ? `b. ${actor.formattedBirthDate}`
     : `${actor.formattedBirthDate} – ${actor.formattedDeathDate || 'Deceased'}`;
 
+  const handleOpenActorDetails = (e: React.MouseEvent | React.KeyboardEvent) => {
+    e.preventDefault();
+    onSelectActor?.(actor);
+  };
+
   return (
     <article
       id={`actor-card-${actor.id}`}
@@ -40,7 +46,19 @@ export const ActorCard: React.FC<ActorCardProps> = ({
         isHighlighted ? 'highlighted' : ''
       }`}
     >
-      <div className="actor-portrait-wrap">
+      <div
+        className="actor-portrait-wrap clickable"
+        role="button"
+        tabIndex={0}
+        title={`View details and filmography for ${actor.name}`}
+        aria-label={`View details and filmography for ${actor.name}`}
+        onClick={handleOpenActorDetails}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            handleOpenActorDetails(e);
+          }
+        }}
+      >
         {actor.imageUrl && !imgError ? (
           <img
             src={actor.imageUrl}
@@ -61,27 +79,14 @@ export const ActorCard: React.FC<ActorCardProps> = ({
 
       <div className="actor-info">
         <div className="actor-name-row">
-          {actor.wikipediaUrl ? (
-            <a
-              href={actor.wikipediaUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="actor-name"
-              title={`Open biography for ${actor.name}`}
-            >
-              {actor.name}{' '}
-              <ExternalLink
-                size={12}
-                style={{
-                  display: 'inline',
-                  verticalAlign: 'middle',
-                  opacity: 0.55,
-                }}
-              />
-            </a>
-          ) : (
-            <span className="actor-name">{actor.name}</span>
-          )}
+          <a
+            href={`#actor-details-${encodeURIComponent(actor.name)}`}
+            className="actor-name actor-name-trigger"
+            title={`View details and filmography for ${actor.name}`}
+            onClick={handleOpenActorDetails}
+          >
+            {actor.name}
+          </a>
 
           <span className={`actor-age-pill ${actor.status}`}>
             {ageBadgeText}

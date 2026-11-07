@@ -2,6 +2,7 @@ import React from 'react';
 import { Search, X } from 'lucide-react';
 import type {
   CastVitalityAnalysis,
+  EvaluatedActor,
   SortOption,
   ViewMode,
 } from '../types/media';
@@ -20,6 +21,7 @@ interface CastSplitViewProps {
   onChangeIncludeVoiceActors: (inc: boolean) => void;
   hasVoiceActors: boolean;
   highlightedActorId: string | null;
+  onSelectActor: (actor: EvaluatedActor) => void;
 }
 
 export const CastSplitView: React.FC<CastSplitViewProps> = ({
@@ -34,6 +36,7 @@ export const CastSplitView: React.FC<CastSplitViewProps> = ({
   onChangeIncludeVoiceActors,
   hasVoiceActors,
   highlightedActorId,
+  onSelectActor,
 }) => {
   const filterTerm = actorFilterQuery.trim().toLowerCase();
 
@@ -177,6 +180,7 @@ export const CastSplitView: React.FC<CastSplitViewProps> = ({
                     key={actor.id}
                     actor={actor}
                     isHighlighted={highlightedActorId === actor.id}
+                    onSelectActor={onSelectActor}
                   />
                 ))}
               </div>
@@ -209,6 +213,7 @@ export const CastSplitView: React.FC<CastSplitViewProps> = ({
                     key={actor.id}
                     actor={actor}
                     isHighlighted={highlightedActorId === actor.id}
+                    onSelectActor={onSelectActor}
                   />
                 ))}
               </div>
@@ -222,6 +227,7 @@ export const CastSplitView: React.FC<CastSplitViewProps> = ({
               key={actor.id}
               actor={actor}
               isHighlighted={highlightedActorId === actor.id}
+              onSelectActor={onSelectActor}
             />
           ))}
         </div>
