@@ -2552,8 +2552,33 @@ button {
 }
 
 @media (max-width: 640px) {
+  html,
+  body,
+  #root,
+  .app-shell,
+  main {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+
+  .app-shell {
+    padding: 0 0.75rem 2.25rem;
+  }
+
+  .masthead-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .source-indicator {
+    max-width: 100%;
+    white-space: normal;
+  }
+
   .search-form {
     padding: 0.22rem 0.28rem 0.22rem 0.55rem;
+    max-width: 100%;
   }
 
   .search-icon {
@@ -2563,6 +2588,7 @@ button {
   .search-input {
     font-size: 0.94rem;
     padding: 0.42rem 0;
+    min-width: 0;
   }
 
   .search-clear-btn {
@@ -2580,6 +2606,127 @@ button {
     font-size: 0.76rem;
     gap: 0.28rem;
     margin-left: 0.3rem;
+  }
+
+  .score-hero,
+  .cast-connections-section,
+  .cast-toolbar,
+  .cast-column {
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  .score-hero-top,
+  .cast-split-container,
+  .unified-cast-grid {
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+  }
+
+  .work-identity,
+  .work-meta,
+  .alive-score-panel,
+  .stat-box,
+  .actor-card,
+  .actor-info {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .work-title,
+  .work-description,
+  .actor-source-bio,
+  .modal-title {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .alive-score-main {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .cast-connections-info {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .cast-connections-open-btn {
+    max-width: 100%;
+    white-space: normal;
+    text-align: center;
+  }
+
+  .toolbar-left,
+  .toolbar-right {
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .toolbar-select {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .actor-name-row {
+    min-width: 0;
+  }
+
+  .actor-dates-row {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .modal-backdrop {
+    padding: 0.5rem;
+    overflow-x: hidden;
+  }
+
+  .modal-card,
+  .actor-connections-modal-card,
+  .actor-details-modal-card,
+  .actor-filmography-modal-card,
+  .actor-lookup-modal-card,
+  .clear-catalog-confirm-card,
+  .cast-network-modal-card {
+    width: 100%;
+    max-width: calc(100vw - 1rem);
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  .actor-lookup-search-form {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .actor-lookup-input-wrap {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .actor-lookup-filter-row,
+  .actor-filmography-toolbar {
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  .shared-work-link {
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    min-width: 0;
+  }
+
+  .shared-work-link-main {
+    flex-wrap: wrap;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .actor-source-meta-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
