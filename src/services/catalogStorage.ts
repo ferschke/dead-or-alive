@@ -2,6 +2,7 @@ import { CURATED_WORKS } from '../data/curatedWorks';
 import type { MediaWork, RawActorRecord, SearchResultItem } from '../types/media';
 
 const CATALOG_STORAGE_KEY = 'dead_or_alive_persistent_catalog_v2';
+const CATALOG_WIPED_KEY = 'dead_or_alive_catalog_wiped_v1';
 
 export interface CatalogMediaWork extends MediaWork {
   aliases?: string[];
@@ -22,6 +23,14 @@ export function loadUserCachedWorks(): CatalogMediaWork[] {
     return parsed.filter((w) => w && typeof w.id === 'string' && Array.isArray(w.cast));
   } catch {
     return [];
+  }
+}
+
+function isCatalogWiped(): boolean {
+  try {
+    return localStorage.getItem(CATALOG_WIPED_KEY) === 'true';
+  } catch {
+    return false;
   }
 }
 
@@ -110,10 +119,14 @@ export function mergeCastLists(
 
 /**
  * Returns the complete local catalog combining user-cached works (persisted in localStorage)
- * and the pre-seeded curated catalog.
+ * and the pre-seeded curated catalog (unless the catalog was explicitly wiped by the user).
  */
 export function getPersistentCatalog(): CatalogMediaWork[] {
   const userCached = loadUserCachedWorks();
+  if (isCatalogWiped()) {
+    return [...userCached];
+  }
+
   const result: CatalogMediaWork[] = [...userCached];
 
   for (const seed of CURATED_WORKS) {
@@ -387,19 +400,25 @@ export function updateCachedWorkIfChanged(
 }
 
 /**
- * Removes a single user-cached work from localStorage.
+ * Removes a single cached work from the persistent catalog.
  */
 export function removeUserCachedWork(id: string): void {
-  const userCached = loadUserCachedWorks().filter((w) => w.id !== id);
-  saveUserCachedWorks(userCached);
+  const currentCatalog = getPersistentCatalog().filter((w) => w.id !== id);
+  try {
+    localStorage.setItem(CATALOG_WIPED_KEY, 'true');
+  } catch {
+    // ignore
+  }
+  saveUserCachedWorks(currentCatalog);
 }
 
 /**
- * Clears all user-cached works from localStorage (restoring only seed works).
+ * Wipes all locally cached works from the persistent catalog.
  */
 export function clearAllUserCachedWorks(): void {
   try {
     localStorage.removeItem(CATALOG_STORAGE_KEY);
+    localStorage.setItem(CATALOG_WIPED_KEY, 'true');
   } catch {
     // ignore
   }

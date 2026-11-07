@@ -1941,6 +1941,152 @@ button {
   font-style: italic;
 }
 
+/* Lookup by Actor Button & Modal */
+.actor-lookup-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  padding: 0.65rem 1.05rem;
+  margin-left: 0.45rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.actor-lookup-trigger-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+  color: var(--accent-gold);
+}
+
+.actor-lookup-backdrop {
+  z-index: 230;
+}
+
+.actor-lookup-modal-card {
+  max-width: 720px;
+  width: 94vw;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  padding: 1.35rem 1.5rem;
+}
+
+.actor-lookup-search-form {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.85rem;
+}
+
+.actor-lookup-input-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.52rem 0.75rem;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+}
+
+.actor-lookup-input-wrap:focus-within {
+  border-color: var(--accent-gold);
+}
+
+.actor-lookup-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  min-width: 0;
+}
+
+.actor-candidates-strip {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  padding: 0.55rem 0.75rem;
+  margin-bottom: 0.65rem;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.actor-lookup-selected-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.65rem 0.85rem;
+  margin-bottom: 0.35rem;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+}
+
+.actor-lookup-selected-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.actor-lookup-selected-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.actor-lookup-selected-desc {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.actor-lookup-filter-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+/* Clear Catalog Confirmation Dialog */
+.clear-catalog-confirm-backdrop {
+  z-index: 250;
+}
+
+.clear-catalog-confirm-card {
+  max-width: 480px;
+  width: 92vw;
+  padding: 1.35rem 1.5rem;
+}
+
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.52rem 1.05rem;
+  border-radius: var(--radius-sm);
+  background: var(--deceased-soft);
+  border: 1px solid var(--deceased-border);
+  color: var(--deceased-text);
+  font-size: 0.84rem;
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+
+.btn-danger:hover {
+  background: rgba(245, 158, 11, 0.22);
+  border-color: var(--deceased-primary);
+  color: #ffffff;
+}
+
 /* Responsive Breakpoints */
 @media (max-width: 960px) {
   .score-hero-top {
@@ -2386,9 +2532,19 @@ button {
 
   .actor-connections-modal-card,
   .actor-details-modal-card,
-  .actor-filmography-modal-card {
+  .actor-filmography-modal-card,
+  .actor-lookup-modal-card {
     padding: 1rem;
     width: 96vw;
+  }
+
+  .actor-lookup-trigger-btn {
+    padding: 0.52rem 0.72rem;
+    font-size: 0.8rem;
+  }
+
+  .actor-lookup-search-form {
+    flex-wrap: wrap;
   }
 
   .actor-filmography-cta-box {

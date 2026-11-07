@@ -595,3 +595,314 @@ export function actorCreditToSearchResult(
     source: credit.source,
   };
 }
+
+export interface ActorSearchCandidate {
+  id: string;
+  name: string;
+  wikidataId?: string;
+  tmdbId?: number;
+  description?: string;
+  imageUrl?: string;
+  source: DataSourceType;
+}
+
+/**
+ * Searches for actors across all configured APIs:
+ * Persistent Local Catalog, Wikidata/Wikipedia, and (if configured) TMDB.
+ */
+export async function searchActorsAcrossApis(
+  query: string,
+  catalogWorks: CatalogMediaWork[],
+  tmdbKey?: string
+): Promise<ActorSearchCandidate[]> {
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+
+  const normQuery = normalizeName(trimmed);
+  const candidatesByNormName = new Map<string, ActorSearchCandidate>();
+
+  const upsertCandidate = (cand: ActorSearchCandidate) => {
+    const key = normalizeName(cand.name);
+    if (!key) return;
+    const existing = candidatesByNormName.get(key);
+    if (existing) {
+      if (!existing.wikidataId && cand.wikidataId) {
+        existing.wikidataId = cand.wikidataId;
+        if (!existing.id.startsWith('Q')) existing.id = cand.wikidataId;
+      }
+      if (!existing.tmdbId && cand.tmdbId) {
+        existing.tmdbId = cand.tmdbId;
+      }
+      if (!existing.imageUrl && cand.imageUrl) {
+        existing.imageUrl = cand.imageUrl;
+      }
+      if (!existing.description && cand.description) {
+        existing.description = cand.description;
+      }
+      return;
+    }
+    candidatesByNormName.set(key, { ...cand });
+  };
+
+  // 1. Check actors in persistent local catalog
+  for (const work of catalogWorks) {
+    for (const actor of work.cast) {
+      const normActor = normalizeName(actor.name);
+      if (normActor.includes(normQuery)) {
+        const qid =
+          actor.wikidataId && /^Q\d+$/.test(actor.wikidataId)
+            ? actor.wikidataId
+            : /^Q\d+$/.test(actor.id)
+            ? actor.id
+            : undefined;
+        upsertCandidate({
+          id: qid || actor.id,
+          name: actor.name,
+          wikidataId: qid,
+          description: `Credited in ${work.title}${
+            work.releaseYear ? ` (${work.releaseYear})` : ''
+          }`,
+          imageUrl: actor.imageUrl,
+          source: 'curated',
+        });
+      }
+    }
+  }
+
+  // 2. Search Wikidata entities and TMDB person search in parallel
+  const cleanKey = tmdbKey?.trim();
+
+  const wikidataPromise = (async (): Promise<ActorSearchCandidate[]> => {
+    try {
+      const searchParams = new URLSearchParams({
+        action: 'wbsearchentities',
+        search: trimmed,
+        language: 'en',
+        type: 'item',
+        limit: '10',
+        format: 'json',
+        origin: '*',
+      });
+      const res = await fetch(`${WIKIDATA_API}?${searchParams.toString()}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      const hits: any[] = data?.search || [];
+      const qids = hits
+        .map((h) => h?.id)
+        .filter((id): id is string => typeof id === 'string' && /^Q\d+$/.test(id));
+      if (qids.length === 0) return [];
+
+      const entParams = new URLSearchParams({
+        action: 'wbgetentities',
+        ids: qids.join('|'),
+        props: 'labels|descriptions|claims',
+        languages: 'en',
+        format: 'json',
+        origin: '*',
+      });
+      const entRes = await fetch(`${WIKIDATA_API}?${entParams.toString()}`);
+      if (!entRes.ok) return [];
+      const entData = await entRes.json();
+      const entities = entData?.entities || {};
+
+      const results: ActorSearchCandidate[] = [];
+      for (const qid of qids) {
+        const ent = entities[qid];
+        if (!ent || ent.missing !== undefined) continue;
+        const claims = ent.claims || {};
+        const p31Ids: string[] = (claims.P31 || [])
+          .map((c: any) => c?.mainsnak?.datavalue?.value?.id)
+          .filter(Boolean);
+        // Must be a human (Q5)
+        if (!p31Ids.includes('Q5')) continue;
+
+        const label =
+          ent.labels?.en?.value ||
+          hits.find((h) => h.id === qid)?.label ||
+          qid;
+        const desc: string =
+          ent.descriptions?.en?.value ||
+          hits.find((h) => h.id === qid)?.description ||
+          '';
+
+        // Prefer people with acting/performing occupations or descriptions, or keep human matches
+        const hasImage =
+          claims.P18?.[0]?.mainsnak?.datavalue?.value;
+        const imageUrl =
+          typeof hasImage === 'string' && hasImage.trim()
+            ? `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(
+                hasImage.trim()
+              )}?width=240`
+            : undefined;
+
+        results.push({
+          id: qid,
+          name: label,
+          wikidataId: qid,
+          description: desc || 'Actor / Performer',
+          imageUrl,
+          source: 'wikidata',
+        });
+      }
+      return results;
+    } catch {
+      return [];
+    }
+  })();
+
+  const tmdbPromise = (async (): Promise<ActorSearchCandidate[]> => {
+    if (!cleanKey) return [];
+    try {
+      const res = await fetch(
+        `${TMDB_BASE}/search/person?api_key=${encodeURIComponent(
+          cleanKey
+        )}&query=${encodeURIComponent(trimmed)}`
+      );
+      if (!res.ok) return [];
+      const data = await res.json();
+      const list: any[] = data?.results || [];
+      return list.slice(0, 10).map((p) => {
+        const knownForTitles = Array.isArray(p.known_for)
+          ? p.known_for
+              .map((k: any) => k.title || k.name)
+              .filter(Boolean)
+              .slice(0, 2)
+              .join(', ')
+          : '';
+        return {
+          id: `tmdb-person-${p.id}`,
+          name: p.name,
+          tmdbId: Number(p.id),
+          description: knownForTitles
+            ? `Known for ${knownForTitles}`
+            : p.known_for_department || 'Actor',
+          imageUrl: p.profile_path
+            ? `${TMDB_IMG_BASE}${p.profile_path}`
+            : undefined,
+          source: 'tmdb' as DataSourceType,
+        };
+      });
+    } catch {
+      return [];
+    }
+  })();
+
+  const [wdActors, tmdbActors] = await Promise.all([
+    wikidataPromise,
+    tmdbPromise,
+  ]);
+
+  for (const a of wdActors) upsertCandidate(a);
+  for (const a of tmdbActors) upsertCandidate(a);
+
+  const merged = Array.from(candidatesByNormName.values());
+  merged.sort((a, b) => {
+    const na = normalizeName(a.name);
+    const nb = normalizeName(b.name);
+    const exactA = na === normQuery ? 1 : 0;
+    const exactB = nb === normQuery ? 1 : 0;
+    if (exactA !== exactB) return exactB - exactA;
+    const startsA = na.startsWith(normQuery) ? 1 : 0;
+    const startsB = nb.startsWith(normQuery) ? 1 : 0;
+    if (startsA !== startsB) return startsB - startsA;
+    const actorDescA = /actor|actress|performer|known for|credited/i.test(
+      a.description || ''
+    )
+      ? 1
+      : 0;
+    const actorDescB = /actor|actress|performer|known for|credited/i.test(
+      b.description || ''
+    )
+      ? 1
+      : 0;
+    return actorDescB - actorDescA;
+  });
+
+  return merged.slice(0, 10);
+}
+
+/**
+ * Fetches all movies and TV shows for an ActorSearchCandidate using all configured APIs.
+ */
+export async function fetchFilmographyForCandidate(
+  candidate: ActorSearchCandidate,
+  catalogWorks: CatalogMediaWork[],
+  tmdbKey?: string
+): Promise<ActorCreditItem[]> {
+  let wikidataId = candidate.wikidataId;
+  let tmdbId = candidate.tmdbId;
+  const cleanKey = tmdbKey?.trim();
+
+  // If we have tmdbId and tmdbKey but no wikidataId, check TMDB external_ids
+  if (!wikidataId && tmdbId && cleanKey) {
+    try {
+      const res = await fetch(
+        `${TMDB_BASE}/person/${tmdbId}/external_ids?api_key=${encodeURIComponent(
+          cleanKey
+        )}`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.wikidata_id && /^Q\d+$/.test(data.wikidata_id)) {
+          wikidataId = data.wikidata_id;
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // If we have wikidataId and tmdbKey but no tmdbId, resolve via TMDB /find
+  if (wikidataId && !tmdbId && cleanKey) {
+    try {
+      const findRes = await fetch(
+        `${TMDB_BASE}/find/${encodeURIComponent(
+          wikidataId
+        )}?api_key=${encodeURIComponent(cleanKey)}&external_source=wikidata_id`
+      );
+      if (findRes.ok) {
+        const findData = await findRes.json();
+        const personMatch = findData?.person_results?.[0];
+        if (personMatch?.id) {
+          tmdbId = Number(personMatch.id);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  const syntheticActor: EvaluatedActor = {
+    id: wikidataId || candidate.id,
+    wikidataId,
+    name: candidate.name,
+    billingOrder: 1,
+    birthDate: null,
+    deathDate: null,
+    status: 'unknown',
+    ageYears: null,
+    yearsSinceDeath: null,
+    formattedBirthDate: 'Unknown',
+    formattedDeathDate: null,
+    statusSummary: '',
+  };
+
+  const syntheticDetails: ActorFullDetails = {
+    wiki: { wikidataId },
+    tmdb: tmdbId
+      ? {
+          id: tmdbId,
+          name: candidate.name,
+          tmdbPageUrl: `https://www.themoviedb.org/person/${tmdbId}`,
+        }
+      : null,
+  };
+
+  return fetchActorFilmography(
+    syntheticActor,
+    syntheticDetails,
+    catalogWorks,
+    tmdbKey
+  );
+}
+

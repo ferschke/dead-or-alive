@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Film, Library, Search, Tv, X } from 'lucide-react';
+import { Film, Library, Search, Tv, UserSearch, X } from 'lucide-react';
 import type { CatalogMediaWork } from '../services/catalogStorage';
 import type { SearchResultItem } from '../types/media';
 
@@ -8,6 +8,7 @@ interface SearchBarProps {
   onSearchQuery: (query: string) => Promise<SearchResultItem[]>;
   onSelectResult: (item: SearchResultItem) => void;
   onSelectCatalogId: (id: string) => void;
+  onOpenActorLookup: () => void;
   activeWorkId: string;
   isLoadingWork: boolean;
 }
@@ -17,6 +18,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   onSearchQuery,
   onSelectResult,
   onSelectCatalogId,
+  onOpenActorLookup,
   activeWorkId,
   isLoadingWork,
 }) => {
@@ -163,6 +165,16 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             disabled={isSearching || isLoadingWork || !query.trim()}
           >
             {isSearching || isLoadingWork ? 'Searching...' : 'Search'}
+          </button>
+
+          <button
+            type="button"
+            id="open-actor-lookup-btn"
+            className="actor-lookup-trigger-btn"
+            onClick={onOpenActorLookup}
+          >
+            <UserSearch size={15} />
+            <span>Lookup by actor</span>
           </button>
         </form>
 

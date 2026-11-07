@@ -1,11 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Database, KeyRound, RefreshCw, Settings2 } from 'lucide-react';
+import {
+  AlertTriangle,
+  Database,
+  KeyRound,
+  RefreshCw,
+  Settings2,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { ActorDetailsModals } from './components/ActorDetailsModals';
+import { ActorLookupModal } from './components/ActorLookupModal';
 import { ApiSettingsModal } from './components/ApiSettingsModal';
 import { CastConnectionsSection } from './components/CastConnectionsSection';
 import { CastSplitView } from './components/CastSplitView';
 import { ScoreHero } from './components/ScoreHero';
 import { SearchBar } from './components/SearchBar';
+import { CURATED_WORKS } from './data/curatedWorks';
 import {
   cacheWorkInPersistentCatalog,
   clearAllUserCachedWorks,
@@ -41,7 +51,7 @@ export function App() {
     getPersistentCatalog()
   );
   const [activeWork, setActiveWork] = useState<MediaWork>(
-    () => getPersistentCatalog()[0]
+    () => getPersistentCatalog()[0] || CURATED_WORKS[0]
   );
   const [queryTimestamp, setQueryTimestamp] = useState<Date>(() => new Date());
 
@@ -59,6 +69,9 @@ export function App() {
   );
   const [selectedActorForModal, setSelectedActorForModal] =
     useState<EvaluatedActor | null>(null);
+  const [isActorLookupOpen, setIsActorLookupOpen] = useState(false);
+  const [isClearCatalogConfirmOpen, setIsClearCatalogConfirmOpen] =
+    useState(false);
 
   const [tmdbKey, setTmdbKey] = useState<string>(() => getStoredTmdbKey());
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -535,7 +548,7 @@ export function App() {
             id="refresh-all-catalog-btn"
             className="source-indicator"
             onClick={handleRefreshAllCatalog}
-            disabled={isRefreshingCatalog}
+            disabled={isRefreshingCatalog || catalogWorks.length === 0}
             title="Check all cached titles against the configured APIs and merge any updated or additional information into the catalog"
           >
             <RefreshCw
@@ -547,6 +560,18 @@ export function App() {
               }
             />
             <span>Refresh Catalog</span>
+          </button>
+
+          <button
+            type="button"
+            id="clear-all-catalog-btn"
+            className="source-indicator"
+            onClick={() => setIsClearCatalogConfirmOpen(true)}
+            disabled={isRefreshingCatalog || catalogWorks.length === 0}
+            title="Clear all locally cached data from the catalog"
+          >
+            <Trash2 size={13} />
+            <span>Clear Catalog</span>
           </button>
 
           <button
@@ -572,6 +597,7 @@ export function App() {
           onSearchQuery={handleSearchQuery}
           onSelectResult={handleSelectResult}
           onSelectCatalogId={handleSelectCatalogId}
+          onOpenActorLookup={() => setIsActorLookupOpen(true)}
           activeWorkId={activeWork.id}
           isLoadingWork={isLoadingWork}
         />
@@ -672,6 +698,98 @@ export function App() {
         onClose={() => setSelectedActorForModal(null)}
         onSelectWork={handleSelectResult}
       />
+
+      <ActorLookupModal
+        isOpen={isActorLookupOpen}
+        onClose={() => setIsActorLookupOpen(false)}
+        catalogWorks={catalogWorks}
+        tmdbKey={tmdbKey}
+        onSelectWork={handleSelectResult}
+      />
+
+      {isClearCatalogConfirmOpen && (
+        <div
+          className="modal-backdrop clear-catalog-confirm-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="clear-catalog-confirm-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setIsClearCatalogConfirmOpen(false);
+            }
+          }}
+        >
+          <div className="modal-card clear-catalog-confirm-card">
+            <div className="modal-header">
+              <h2
+                id="clear-catalog-confirm-title"
+                style={{
+                  fontFamily: 'var(--font-serif)',
+                  fontSize: '1.3rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                }}
+              >
+                <AlertTriangle
+                  size={18}
+                  style={{ color: 'var(--deceased-primary)' }}
+                />
+                Clear Local Catalog?
+              </h2>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setIsClearCatalogConfirmOpen(false)}
+                aria-label="Close confirmation dialog"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <p
+              style={{
+                fontSize: '0.88rem',
+                color: 'var(--text-secondary)',
+                lineHeight: 1.55,
+                marginBottom: '1.25rem',
+              }}
+            >
+              Are you sure you want to wipe the locally cached data from your
+              catalog? This will remove all {catalogWorks.length} cached{' '}
+              {catalogWorks.length === 1 ? 'title' : 'titles'} from your local
+              browser catalog.
+            </p>
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                id="cancel-clear-catalog-btn"
+                className="btn-secondary"
+                onClick={() => setIsClearCatalogConfirmOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                id="confirm-clear-catalog-btn"
+                className="btn-danger"
+                onClick={() => {
+                  clearAllUserCachedWorks();
+                  refreshCatalogState();
+                  setIsClearCatalogConfirmOpen(false);
+                  setStatusNotice(
+                    'Cleared all locally cached data from the catalog.'
+                  );
+                }}
+              >
+                <Trash2 size={14} />
+                <span>Clear Catalog</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ApiSettingsModal
         isOpen={isSettingsOpen}
