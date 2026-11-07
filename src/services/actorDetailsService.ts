@@ -604,6 +604,7 @@ export interface ActorSearchCandidate {
   description?: string;
   imageUrl?: string;
   source: DataSourceType;
+  catalogCountHint?: number;
 }
 
 /**
@@ -639,6 +640,10 @@ export async function searchActorsAcrossApis(
       if (!existing.description && cand.description) {
         existing.description = cand.description;
       }
+      if (cand.catalogCountHint) {
+        existing.catalogCountHint =
+          (existing.catalogCountHint || 0) + cand.catalogCountHint;
+      }
       return;
     }
     candidatesByNormName.set(key, { ...cand });
@@ -664,6 +669,7 @@ export async function searchActorsAcrossApis(
           }`,
           imageUrl: actor.imageUrl,
           source: 'curated',
+          catalogCountHint: 1,
         });
       }
     }

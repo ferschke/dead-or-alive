@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowUpRight,
   Clapperboard,
@@ -6,6 +6,7 @@ import {
   Loader2,
   Search,
   Tv,
+  User,
   UserSearch,
   X,
 } from 'lucide-react';
@@ -35,6 +36,11 @@ export const ActorLookupModal: React.FC<ActorLookupModalProps> = ({
   onSelectWork,
 }) => {
   const [actorQuery, setActorQuery] = useState('');
+  const [suggestions, setSuggestions] = useState<ActorSearchCandidate[]>([]);
+  const [isSuggesting, setIsSuggesting] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
+
   const [candidates, setCandidates] = useState<ActorSearchCandidate[]>([]);
   const [selectedCandidate, setSelectedCandidate] =
     useState<ActorSearchCandidate | null>(null);
@@ -44,10 +50,16 @@ export const ActorLookupModal: React.FC<ActorLookupModalProps> = ({
   const [isLoadingCredits, setIsLoadingCredits] = useState(false);
   const [hasSubmittedSearch, setHasSubmittedSearch] = useState(false);
 
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
   // Reset state when modal opens/closes
   useEffect(() => {
     if (!isOpen) {
       setActorQuery('');
+      setSuggestions([]);
+      setIsSuggesting(false);
+      setIsDropdownOpen(false);
+      setActiveIndex(-1);
       setCandidates([]);
       setSelectedCandidate(null);
       setCredits([]);
@@ -58,17 +70,74 @@ export const ActorLookupModal: React.FC<ActorLookupModalProps> = ({
     }
   }, [isOpen]);
 
-  // Close on Escape
+  // Close autosuggest dropdown on click outside search container
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        searchContainerRef.current &&
+        !searchContainerRef.current.contains(e.target as Node)
+      ) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
+
+  // Close modal on Escape (unless autosuggest dropdown handles it)
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        if (isDropdownOpen) {
+          setIsDropdownOpen(false);
+          return;
+        }
         onClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, isDropdownOpen, onClose]);
+
+  // Debounced autosuggest query as the user types (mirrors movie SearchBar)
+  useEffect(() => {
+    if (!isOpen) return;
+    const trimmed = actorQuery.trim();
+    if (trimmed.length < 1) {
+      setSuggestions([]);
+      setIsSuggesting(false);
+      setActiveIndex(-1);
+      return;
+    }
+
+    let cancelled = false;
+    setIsSuggesting(true);
+
+    const timer = setTimeout(async () => {
+      try {
+        const items = await searchActorsAcrossApis(
+          trimmed,
+          catalogWorks,
+          tmdbKey
+        );
+        if (!cancelled) {
+          setSuggestions(items);
+          setActiveIndex(items.length > 0 ? 0 : -1);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsSuggesting(false);
+        }
+      }
+    }, 180);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [actorQuery, catalogWorks, tmdbKey, isOpen]);
 
   const loadCreditsForActor = async (candidate: ActorSearchCandidate) => {
     setSelectedCandidate(candidate);
@@ -88,12 +157,35 @@ export const ActorLookupModal: React.FC<ActorLookupModalProps> = ({
     }
   };
 
+  const handleSelectSuggestion = (cand: ActorSearchCandidate) => {
+    setIsDropdownOpen(false);
+    setActorQuery(cand.name);
+    setHasSubmittedSearch(true);
+    setCandidates(suggestions.length > 0 ? suggestions : [cand]);
+    void loadCreditsForActor(cand);
+  };
+
   const handleSubmitActorSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = actorQuery.trim();
     if (!trimmed) return;
 
+    setIsDropdownOpen(false);
     setHasSubmittedSearch(true);
+
+    // If autosuggest already has results and an active item is highlighted, use it immediately
+    if (
+      suggestions.length > 0 &&
+      activeIndex >= 0 &&
+      activeIndex < suggestions.length
+    ) {
+      const chosen = suggestions[activeIndex];
+      setActorQuery(chosen.name);
+      setCandidates(suggestions);
+      await loadCreditsForActor(chosen);
+      return;
+    }
+
     setIsSearchingActors(true);
     setCredits([]);
     setSelectedCandidate(null);
@@ -104,12 +196,44 @@ export const ActorLookupModal: React.FC<ActorLookupModalProps> = ({
         catalogWorks,
         tmdbKey
       );
+      setSuggestions(matchedActors);
       setCandidates(matchedActors);
       if (matchedActors.length > 0) {
-        await loadCreditsForActor(matchedActors[0]);
+        const chosen =
+          activeIndex >= 0 && activeIndex < matchedActors.length
+            ? matchedActors[activeIndex]
+            : matchedActors[0];
+        setActorQuery(chosen.name);
+        await loadCreditsForActor(chosen);
       }
     } finally {
       setIsSearchingActors(false);
+    }
+  };
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!isDropdownOpen || suggestions.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIndex((prev) => (prev + 1) % suggestions.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIndex(
+        (prev) => (prev - 1 + suggestions.length) % suggestions.length
+      );
+    } else if (e.key === 'Tab' && activeIndex >= 0 && suggestions[activeIndex]) {
+      const activeCand = suggestions[activeIndex];
+      if (
+        activeCand.name.toLowerCase() !== actorQuery.trim().toLowerCase()
+      ) {
+        e.preventDefault();
+        setActorQuery(activeCand.name);
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDropdownOpen(false);
     }
   };
 
@@ -188,48 +312,164 @@ export const ActorLookupModal: React.FC<ActorLookupModalProps> = ({
           </button>
         </div>
 
-        {/* Actor Search Bar */}
-        <form
-          className="actor-lookup-search-form"
-          onSubmit={handleSubmitActorSearch}
-        >
-          <div className="actor-lookup-input-wrap">
-            <Search size={16} style={{ color: 'var(--text-muted)' }} />
-            <input
-              id="actor-lookup-search-input"
-              type="text"
-              className="actor-lookup-input"
-              placeholder="Enter actor name (e.g. Al Pacino, Meryl Streep)..."
-              value={actorQuery}
-              onChange={(e) => setActorQuery(e.target.value)}
-              autoFocus
-            />
-            {actorQuery && (
-              <button
-                type="button"
-                onClick={() => {
-                  setActorQuery('');
-                  setCandidates([]);
-                  setSelectedCandidate(null);
-                  setCredits([]);
-                  setHasSubmittedSearch(false);
-                }}
-                aria-label="Clear actor search"
-                style={{ color: 'var(--text-muted)', display: 'inline-flex' }}
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
-          <button
-            type="submit"
-            id="actor-lookup-submit-btn"
-            className="search-submit-btn"
-            disabled={isSearchingActors || isLoadingCredits || !actorQuery.trim()}
+        {/* Actor Search Bar with Autosuggest & Autocomplete Dropdown */}
+        <div className="actor-lookup-search-container" ref={searchContainerRef}>
+          <form
+            className="actor-lookup-search-form"
+            onSubmit={handleSubmitActorSearch}
           >
-            {isSearchingActors ? 'Searching...' : 'Search Actor'}
-          </button>
-        </form>
+            <div className="actor-lookup-input-wrap">
+              <Search size={16} style={{ color: 'var(--text-muted)' }} />
+              <input
+                id="actor-lookup-search-input"
+                type="text"
+                className="actor-lookup-input"
+                placeholder="Enter actor name (e.g. Al Pacino, Meryl Streep)..."
+                value={actorQuery}
+                onChange={(e) => {
+                  setActorQuery(e.target.value);
+                  setIsDropdownOpen(true);
+                }}
+                onFocus={() => {
+                  if (actorQuery.trim().length >= 1) {
+                    setIsDropdownOpen(true);
+                  }
+                }}
+                onKeyDown={handleInputKeyDown}
+                autoComplete="off"
+                autoFocus
+              />
+              {actorQuery && (
+                <button
+                  type="button"
+                  id="clear-actor-lookup-input-btn"
+                  onClick={() => {
+                    setActorQuery('');
+                    setSuggestions([]);
+                    setIsDropdownOpen(false);
+                    setActiveIndex(-1);
+                    setCandidates([]);
+                    setSelectedCandidate(null);
+                    setCredits([]);
+                    setHasSubmittedSearch(false);
+                  }}
+                  aria-label="Clear actor search"
+                  style={{ color: 'var(--text-muted)', display: 'inline-flex' }}
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+            <button
+              type="submit"
+              id="actor-lookup-submit-btn"
+              className="search-submit-btn"
+              disabled={
+                isSearchingActors || isLoadingCredits || !actorQuery.trim()
+              }
+            >
+              {isSearchingActors ? 'Searching...' : 'Search Actor'}
+            </button>
+          </form>
+
+          {isDropdownOpen && actorQuery.trim().length >= 1 && (
+            <div
+              className="search-dropdown actor-lookup-dropdown"
+              role="listbox"
+              aria-label="Matching actors"
+            >
+              {isSuggesting && suggestions.length === 0 ? (
+                <div
+                  style={{
+                    padding: '1rem',
+                    color: 'var(--text-secondary)',
+                    fontSize: '0.86rem',
+                  }}
+                >
+                  Searching local catalog &amp; Wikidata / TMDB APIs...
+                </div>
+              ) : suggestions.length === 0 ? (
+                <div
+                  style={{
+                    padding: '1rem',
+                    color: 'var(--text-secondary)',
+                    fontSize: '0.86rem',
+                  }}
+                >
+                  No matching actors found for &ldquo;{actorQuery}&rdquo;.
+                </div>
+              ) : (
+                suggestions.map((cand, idx) => (
+                  <button
+                    key={cand.id}
+                    type="button"
+                    role="option"
+                    aria-selected={idx === activeIndex}
+                    className={`search-result-item ${
+                      idx === activeIndex ? 'active' : ''
+                    }`}
+                    onMouseEnter={() => setActiveIndex(idx)}
+                    onClick={() => handleSelectSuggestion(cand)}
+                  >
+                    {cand.imageUrl ? (
+                      <img
+                        src={cand.imageUrl}
+                        alt=""
+                        className="search-result-thumb"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="search-result-thumb">
+                        <User size={16} />
+                      </div>
+                    )}
+
+                    <div className="search-result-body">
+                      <div className="search-result-title-row">
+                        <span className="search-result-title">{cand.name}</span>
+                        <span
+                          className="media-type-tag"
+                          style={{
+                            color:
+                              cand.source === 'curated'
+                                ? 'var(--alive-text)'
+                                : 'var(--accent-gold)',
+                          }}
+                        >
+                          {cand.source === 'curated'
+                            ? 'Cached in Catalog'
+                            : cand.source === 'tmdb'
+                            ? 'TMDB API'
+                            : 'Wikidata API'}
+                        </span>
+                        {cand.catalogCountHint !== undefined &&
+                          cand.catalogCountHint > 0 && (
+                            <span
+                              style={{
+                                fontSize: '0.7rem',
+                                color: 'var(--text-muted)',
+                                fontFamily: 'var(--font-mono)',
+                              }}
+                            >
+                              {cand.catalogCountHint}{' '}
+                              {cand.catalogCountHint === 1
+                                ? 'catalog title'
+                                : 'catalog titles'}
+                            </span>
+                          )}
+                      </div>
+                      {cand.description && (
+                        <div className="search-result-meta">
+                          {cand.description}
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Matching Actor Candidates Strip (if multiple actors match) */}
         {candidates.length > 1 && (
@@ -242,7 +482,10 @@ export const ActorLookupModal: React.FC<ActorLookupModalProps> = ({
                   key={cand.id}
                   type="button"
                   className={`preset-chip ${isSelected ? 'selected' : ''}`}
-                  onClick={() => void loadCreditsForActor(cand)}
+                  onClick={() => {
+                    setActorQuery(cand.name);
+                    void loadCreditsForActor(cand);
+                  }}
                 >
                   <span>{cand.name}</span>
                 </button>

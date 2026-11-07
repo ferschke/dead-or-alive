@@ -1977,11 +1977,20 @@ button {
   padding: 1.35rem 1.5rem;
 }
 
+.actor-lookup-search-container {
+  position: relative;
+  margin-bottom: 0.85rem;
+}
+
 .actor-lookup-search-form {
   display: flex;
   align-items: center;
   gap: 0.55rem;
-  margin-bottom: 0.85rem;
+}
+
+.actor-lookup-dropdown {
+  max-height: 310px;
+  z-index: 80;
 }
 
 .actor-lookup-input-wrap {
