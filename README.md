@@ -6,7 +6,7 @@
 <p align="center">
   <img src="./docs/map.png" alt="Cast Connections Network" width="56%" />
   &nbsp;&nbsp;
-  <img src="./docs/mapdetail.png" alt="Actor Connections Detail" width="36%" />
+  <img src="./docs/mapdetails.png" alt="Actor Connections Detail" width="36%" />
 </p>
 
 **Dead or Alive** is a responsive web application built with **Vite + React + TypeScript** that lets you search for any movie or television series and determines how many of its credited cast members are still alive at the exact moment your query is evaluated.
