@@ -24,9 +24,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 }) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResultItem[]>([]);
-  const [submittedMatches, setSubmittedMatches] = useState<SearchResultItem[]>(
-    []
-  );
   const [isSearching, setIsSearching] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -99,7 +96,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     try {
       const fresh = await onSearchQuery(trimmed);
       setResults(fresh);
-      setSubmittedMatches(fresh.slice(0, 6));
       if (fresh.length > 0) {
         const chosen =
           activeIndex >= 0 && activeIndex < fresh.length
@@ -164,7 +160,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({
               onClick={() => {
                 setQuery('');
                 setResults([]);
-                setSubmittedMatches([]);
                 setIsOpen(false);
               }}
               aria-label="Clear search query"
@@ -239,7 +234,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                   onClick={() => {
                     setIsOpen(false);
                     setQuery(""); setResults([]);
-                    setSubmittedMatches(results.slice(0, 6));
                     onSelectResult(item);
                   }}
                 >
@@ -317,36 +311,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         )}
       </div>
 
-      {submittedMatches.length > 1 && (
-        <div
-          className="preset-strip"
-          style={{
-            padding: '0.55rem 0.75rem',
-            background: 'var(--bg-surface)',
-            border: '1px solid var(--border-default)',
-            borderRadius: 'var(--radius-sm)',
-            marginTop: '0.65rem',
-          }}
-        >
-          <span className="preset-label">Query Matches:</span>
-          {submittedMatches.map((m) => (
-            <button
-              key={m.id}
-              type="button"
-              className={`preset-chip ${
-                activeWorkId === m.id ? 'selected' : ''
-              }`}
-              onClick={() => onSelectResult(m)}
-            >
-              <span>{m.title}</span>
-              {m.releaseYear && (
-                <span className="preset-chip-year">{m.releaseYear}</span>
-              )}
-            </button>
-          ))}
-        </div>
-      )}
-
       {/* Persistent Local Catalog Selector */}
       <div className="preset-strip" aria-label="Local Catalog">
         <div
@@ -371,7 +335,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             onChange={(e) => {
               if (e.target.value) {
                 setQuery('');
-                setSubmittedMatches([]);
                 setIsOpen(false);
                 onSelectCatalogId(e.target.value);
               }
