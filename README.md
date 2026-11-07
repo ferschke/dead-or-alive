@@ -11,7 +11,7 @@
 ## Key Features
 
 - **Real-Time Cast Vitality Calculation**
-  - Records the exact query timestamp and evaluates every credited actor's living status, current age, or age at passing relative to that moment (with a **Re-stamp Now** action to re-evaluate at the current instant).
+  - Every time a movie or television show is accessed, its data is refreshed against the configured APIs and every credited actor's living status, current age, or age at passing is re-evaluated at that exact timestamp.
 - **Overall Alive Score & Demographic Summary**
   - Computes the fraction of living cast members (`Alive / Total`), percentage (`%`), and decimal ratio (`0.000`), paired with a proportional split bar.
   - Summarizes cast demographics at a glance: **Median & Mean Age (Living Cast)**, **Oldest Living Actor**, **Youngest Living Actor**, and **Most Recently Deceased** (with average age at passing).

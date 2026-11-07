@@ -4,7 +4,6 @@ import {
   ExternalLink,
   Film,
   History,
-  RefreshCw,
   Tv,
 } from 'lucide-react';
 import type {
@@ -18,7 +17,6 @@ interface ScoreHeroProps {
   analysis: CastVitalityAnalysis;
   selectedEvalYear: number | null;
   onChangeEvalYear: (year: number | null) => void;
-  onRefreshQueryTime: () => void;
   onSelectMatrixActor: (actorId: string) => void;
   hasTmdbKey?: boolean;
   onOpenSettings?: () => void;
@@ -67,7 +65,6 @@ export const ScoreHero: React.FC<ScoreHeroProps> = ({
   analysis,
   selectedEvalYear,
   onChangeEvalYear,
-  onRefreshQueryTime,
   onSelectMatrixActor,
   hasTmdbKey = false,
   onOpenSettings,
@@ -152,17 +149,6 @@ export const ScoreHero: React.FC<ScoreHeroProps> = ({
                   ? `Historical view: Dec 31, ${selectedEvalYear}`
                   : `Evaluated: ${formattedQueryTimestamp}`}
               </span>
-
-              <button
-                type="button"
-                id="refresh-query-time-btn"
-                className="query-refresh-btn"
-                onClick={onRefreshQueryTime}
-                title="Re-evaluate cast vitality at the current moment"
-              >
-                <RefreshCw size={11} />
-                Re-stamp Now
-              </button>
             </div>
 
             <h2 className="work-title">

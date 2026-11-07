@@ -158,6 +158,8 @@ export function App() {
 
         if (!fetchedWork) {
           if (activeRequestIdRef.current === requestId) {
+            setQueryTimestamp(new Date());
+            setActiveWork({ ...cachedWork });
             setStatusNotice(
               `Loaded "${cachedWork.title}" (${cachedWork.cast.length} actors) from persistent local catalog.`
             );
@@ -183,6 +185,8 @@ export function App() {
             );
           }
         } else if (activeRequestIdRef.current === requestId) {
+          setQueryTimestamp(new Date());
+          setActiveWork({ ...cachedWork });
           setStatusNotice(
             `Loaded "${cachedWork.title}" (${cachedWork.cast.length} actors) from persistent local catalog — verified up to date with ${
               tmdbKey ? 'Wikidata + TMDB APIs' : 'Wikidata API'
@@ -191,6 +195,8 @@ export function App() {
         }
       } catch {
         if (activeRequestIdRef.current === requestId) {
+          setQueryTimestamp(new Date());
+          setActiveWork({ ...cachedWork });
           setStatusNotice(
             `Loaded "${cachedWork.title}" (${cachedWork.cast.length} actors) from persistent local catalog.`
           );
@@ -622,10 +628,6 @@ export function App() {
               analysis={analysis}
               selectedEvalYear={selectedEvalYear}
               onChangeEvalYear={setSelectedEvalYear}
-              onRefreshQueryTime={() => {
-                setSelectedEvalYear(null);
-                setQueryTimestamp(new Date());
-              }}
               onSelectMatrixActor={handleSelectMatrixActor}
               hasTmdbKey={Boolean(tmdbKey.trim())}
               onOpenSettings={() => setIsSettingsOpen(true)}
