@@ -3,7 +3,6 @@ import {
   Clock,
   ExternalLink,
   Film,
-  History,
   Tv,
 } from 'lucide-react';
 import type {
@@ -15,8 +14,6 @@ import type {
 interface ScoreHeroProps {
   work: MediaWork;
   analysis: CastVitalityAnalysis;
-  selectedEvalYear: number | null;
-  onChangeEvalYear: (year: number | null) => void;
   onSelectMatrixActor: (actorId: string) => void;
   hasTmdbKey?: boolean;
   onOpenSettings?: () => void;
@@ -63,8 +60,6 @@ const MatrixTile: React.FC<{
 export const ScoreHero: React.FC<ScoreHeroProps> = ({
   work,
   analysis,
-  selectedEvalYear,
-  onChangeEvalYear,
   onSelectMatrixActor,
   hasTmdbKey = false,
   onOpenSettings,
@@ -72,10 +67,6 @@ export const ScoreHero: React.FC<ScoreHeroProps> = ({
   const [posterError, setPosterError] = useState(false);
 
   const queryYear = analysis.queryTimestamp.getFullYear();
-  const minScrubYear = work.releaseYear
-    ? Math.min(work.releaseYear, queryYear)
-    : 1930;
-  const activeSliderYear = selectedEvalYear ?? queryYear;
 
   const formattedQueryTimestamp = analysis.queryTimestamp.toLocaleString(
     undefined,
@@ -145,9 +136,7 @@ export const ScoreHero: React.FC<ScoreHeroProps> = ({
                 title="Exact timestamp when this query was evaluated"
               >
                 <Clock size={12} />
-                {analysis.isHistoricalPreview
-                  ? `Historical view: Dec 31, ${selectedEvalYear}`
-                  : `Evaluated: ${formattedQueryTimestamp}`}
+                {`Evaluated: ${formattedQueryTimestamp}`}
               </span>
             </div>
 
@@ -375,57 +364,6 @@ export const ScoreHero: React.FC<ScoreHeroProps> = ({
                 }`
               : 'All cast members alive'}
           </div>
-        </div>
-      </div>
-
-      {/* Interactive Time Scrubber (defaults to Present Query Time) */}
-      <div
-        className={`time-scrubber-bar ${
-          analysis.isHistoricalPreview ? 'historical-active' : ''
-        }`}
-      >
-        <div className="scrubber-info">
-          <History size={15} />
-          <span>
-            Evaluating cast vitality as of:{' '}
-            <strong>
-              {selectedEvalYear === null
-                ? `Present Query Time (${queryYear})`
-                : `Year ${selectedEvalYear}`}
-            </strong>
-          </span>
-        </div>
-
-        <div className="scrubber-controls">
-          <span className="scrubber-year-end">{minScrubYear}</span>
-          <input
-            type="range"
-            id="historical-year-scrubber"
-            className="scrubber-range"
-            min={minScrubYear}
-            max={queryYear}
-            value={activeSliderYear}
-            onChange={(e) => {
-              const yr = parseInt(e.target.value, 10);
-              if (yr >= queryYear) {
-                onChangeEvalYear(null);
-              } else {
-                onChangeEvalYear(yr);
-              }
-            }}
-            aria-label="Scrub evaluation year from release year to present query time"
-          />
-          <span className="scrubber-year-end">Now ({queryYear})</span>
-          {selectedEvalYear !== null && (
-            <button
-              type="button"
-              id="reset-present-time-btn"
-              className="scrubber-reset-btn"
-              onClick={() => onChangeEvalYear(null)}
-            >
-              Reset to Present
-            </button>
-          )}
         </div>
       </div>
     </section>

@@ -15,7 +15,6 @@
 - **Interactive Cast Matrix & Roster**:
   - **Cast Vitality Matrix**: A color-coded grid of actor portraits/initials (green for living, copper for deceased) that scrolls to and highlights the selected actor below.
   - **Split & Unified Views**: Browse actors in side-by-side **Still Alive** and **Deceased** columns or a single unified list, with instant search filtering by actor or role and sorting by billing order, age, name, or date of passing.
-- **Historical Time Scrubber**: An interactive timeline slider lets you scrub to any year between the title's release and the present to see how the cast vitality score changed over time.
 - **Persistent Local Catalog & Background Sync**: Pre-loaded with a starter catalog and backed by browser `localStorage` so newly searched titles persist across sessions. Cached entries load immediately and automatically sync with the APIs in the background, or you can update all cached titles at once via **Refresh Catalog**.
 - **Wikidata & Optional TMDB Integration**: Works out of the box with public **Wikidata**, **Wikipedia**, and **TVMaze** APIs with no setup required. You can optionally add a free [TMDB API Key](https://developer.themoviedb.org/docs/getting-started) in the settings dialog to enrich titles with more complete movie and TV cast lists, character roles, posters, and biographical dates.
 - **Responsive Layout**: Designed for desktop browsers with a responsive layout that adapts cleanly to iPhone and Android screens.

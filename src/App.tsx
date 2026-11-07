@@ -41,7 +41,6 @@ export function App() {
     () => getPersistentCatalog()[0]
   );
   const [queryTimestamp, setQueryTimestamp] = useState<Date>(() => new Date());
-  const [selectedEvalYear, setSelectedEvalYear] = useState<number | null>(null);
 
   const [isLoadingWork, setIsLoadingWork] = useState(false);
   const [isRefreshingCatalog, setIsRefreshingCatalog] = useState(false);
@@ -356,7 +355,6 @@ export function App() {
       const reqId = ++activeRequestIdRef.current;
       setErrorMsg(null);
       setStatusNotice(null);
-      setSelectedEvalYear(null);
       setActorFilterQuery('');
       setQueryTimestamp(new Date());
 
@@ -460,7 +458,6 @@ export function App() {
       if (!found) return;
       const reqId = ++activeRequestIdRef.current;
       setErrorMsg(null);
-      setSelectedEvalYear(null);
       setActorFilterQuery('');
       setQueryTimestamp(new Date());
       setActiveWork(found);
@@ -483,14 +480,9 @@ export function App() {
     return activeWork.cast.filter((c) => !c.isVoice);
   }, [activeWork.cast, includeVoiceActors]);
 
-  const evaluationDate = useMemo(() => {
-    if (selectedEvalYear === null) return queryTimestamp;
-    return new Date(selectedEvalYear, 11, 31, 23, 59, 59);
-  }, [selectedEvalYear, queryTimestamp]);
-
   const analysis = useMemo(
-    () => analyzeCastVitality(filteredCast, queryTimestamp, evaluationDate),
-    [filteredCast, queryTimestamp, evaluationDate]
+    () => analyzeCastVitality(filteredCast, queryTimestamp, queryTimestamp),
+    [filteredCast, queryTimestamp]
   );
 
   const handleSelectMatrixActor = (actorId: string) => {
@@ -626,8 +618,6 @@ export function App() {
             <ScoreHero
               work={activeWork}
               analysis={analysis}
-              selectedEvalYear={selectedEvalYear}
-              onChangeEvalYear={setSelectedEvalYear}
               onSelectMatrixActor={handleSelectMatrixActor}
               hasTmdbKey={Boolean(tmdbKey.trim())}
               onOpenSettings={() => setIsSettingsOpen(true)}
