@@ -10,25 +10,15 @@
 
 ## Key Features
 
-- **Real-Time Cast Vitality Calculation**
-  - Every time a movie or television show is accessed, its data is refreshed against the configured APIs and every credited actor's living status, current age, or age at passing is re-evaluated at that exact timestamp.
-- **Overall Alive Score & Demographic Summary**
-  - Computes the fraction of living cast members (`Alive / Total`), percentage (`%`), and decimal ratio (`0.000`), paired with a proportional split bar.
-  - Summarizes cast demographics at a glance: **Median & Mean Age (Living Cast)**, **Oldest Living Actor**, **Youngest Living Actor**, and **Most Recently Deceased** (with average age at passing).
-- **Visual Cast Overview & Interactive Split Roster**
-  - **Cast Vitality Matrix**: Color-coded portrait/initials grid grouping living (green) and deceased (copper) cast members; clicking any tile smoothly scrolls to and highlights that actor's card in the roster below.
-  - **Alive vs. Dead Split & Unified Views**: Side-by-side **Still Alive** and **Deceased** columns (or a toggleable **Unified Roster**), with instant filtering by actor name or character role, voice-actor toggling, and sorting by **Billing Order**, **Age (Oldest / Youngest First)**, **Actor Name (A–Z)**, or **Date of Passing (Most Recent / Earliest)**.
-- **Historical "As-Of Year" Time Scrubber**
-  - Defaults to the present query time, with an interactive timeline slider that lets you scrub back to any year between the title's release year and the present to inspect how the cast vitality score evolved over time.
-- **Persistent Local Catalog & Automatic API Sync**
-  - Includes a pre-seeded catalog of iconic films and television series and automatically caches every newly queried title in `localStorage` so your catalog persists across browser sessions.
-  - **Automatic Post-Load API Check**: Whenever a cached entry is loaded, the app displays it immediately and checks the configured APIs in the background to merge any newly available cast members, biographical dates, or metadata updates.
-  - **One-Click Full Catalog Refresh**: Use the **Refresh Catalog** button in the top bar to check all cached titles against the configured APIs and merge any new or updated cast information across your entire catalog.
-- **Multi-Source API Integration (Wikidata + Optional TMDB Enrichment)**
-  - **Zero-Config Default**: Queries **Wikidata** (`wbgetentities` & SPARQL), **Wikipedia** cast sections and `pageimages`, and **TVMaze** out of the box with no API key required.
-  - **Optional TMDB API Key**: Click **Config / TMDB API Key** in the header (or the prompt in the Overall Alive Score panel) to provide a free [TMDB API Key](https://developer.themoviedb.org/docs/getting-started) (v3 API Key or v4 Read Access Token). When configured, additional TMDB movie and TV aggregate cast credits, character roles, posters, portraits, and birth/death dates are automatically merged and cached.
-- **Desktop & Mobile Responsive Design**
-  - Tailored editorial cinema layout for desktop browsers that automatically adapts to mobile viewports on iPhone and Android devices.
+- **Real-Time Vitality Evaluation**: Accessing any movie or TV show refreshes its data against the configured APIs and evaluates each actor's living status, current age, or age at passing at that exact timestamp.
+- **Alive Score & Cast Demographics**: Displays the proportion of living cast members as a percentage, fraction, and decimal ratio alongside a visual split bar and key stats (median/mean living age, oldest and youngest living actors, and most recently deceased).
+- **Interactive Cast Matrix & Roster**:
+  - **Cast Vitality Matrix**: A color-coded grid of actor portraits/initials (green for living, copper for deceased) that scrolls to and highlights the selected actor below.
+  - **Split & Unified Views**: Browse actors in side-by-side **Still Alive** and **Deceased** columns or a single unified list, with instant search filtering by actor or role and sorting by billing order, age, name, or date of passing.
+- **Historical Time Scrubber**: An interactive timeline slider lets you scrub to any year between the title's release and the present to see how the cast vitality score changed over time.
+- **Persistent Local Catalog & Background Sync**: Pre-loaded with a starter catalog and backed by browser `localStorage` so newly searched titles persist across sessions. Cached entries load immediately and automatically sync with the APIs in the background, or you can update all cached titles at once via **Refresh Catalog**.
+- **Wikidata & Optional TMDB Integration**: Works out of the box with public **Wikidata**, **Wikipedia**, and **TVMaze** APIs with no setup required. You can optionally add a free [TMDB API Key](https://developer.themoviedb.org/docs/getting-started) in the settings dialog to enrich titles with more complete movie and TV cast lists, character roles, posters, and biographical dates.
+- **Responsive Layout**: Designed for desktop browsers with a responsive layout that adapts cleanly to iPhone and Android screens.
 
 ---
 
