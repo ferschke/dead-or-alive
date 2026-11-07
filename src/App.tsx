@@ -546,8 +546,23 @@ export function App() {
                     fontWeight: 600,
                   }}
                 >
-                  Warning: Results and statistics might be incomplete without
-                  configuring the TMDB API.
+                  Warning: Movie data and statistics might be incomplete without
+                  using the TMDB API. You can configure the TMDB API in the{' '}
+                  <a
+                    href="#tmdb-settings"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setIsSettingsOpen(true);
+                    }}
+                    style={{
+                      color: 'inherit',
+                      textDecoration: 'underline',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    settings
+                  </a>
+                  .
                 </span>
               )}
             </div>
