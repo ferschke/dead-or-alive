@@ -604,16 +604,15 @@ export interface ActorSearchCandidate {
   description?: string;
   imageUrl?: string;
   source: DataSourceType;
-  catalogCountHint?: number;
 }
 
 /**
- * Searches for actors across all configured APIs:
- * Persistent Local Catalog, Wikidata/Wikipedia, and (if configured) TMDB.
+ * Searches for actors across all configured external APIs:
+ * Wikidata/Wikipedia and (if configured) TMDB.
  */
 export async function searchActorsAcrossApis(
   query: string,
-  catalogWorks: CatalogMediaWork[],
+  _catalogWorks?: CatalogMediaWork[],
   tmdbKey?: string
 ): Promise<ActorSearchCandidate[]> {
   const trimmed = query.trim();
@@ -640,42 +639,12 @@ export async function searchActorsAcrossApis(
       if (!existing.description && cand.description) {
         existing.description = cand.description;
       }
-      if (cand.catalogCountHint) {
-        existing.catalogCountHint =
-          (existing.catalogCountHint || 0) + cand.catalogCountHint;
-      }
       return;
     }
     candidatesByNormName.set(key, { ...cand });
   };
 
-  // 1. Check actors in persistent local catalog
-  for (const work of catalogWorks) {
-    for (const actor of work.cast) {
-      const normActor = normalizeName(actor.name);
-      if (normActor.includes(normQuery)) {
-        const qid =
-          actor.wikidataId && /^Q\d+$/.test(actor.wikidataId)
-            ? actor.wikidataId
-            : /^Q\d+$/.test(actor.id)
-            ? actor.id
-            : undefined;
-        upsertCandidate({
-          id: qid || actor.id,
-          name: actor.name,
-          wikidataId: qid,
-          description: `Credited in ${work.title}${
-            work.releaseYear ? ` (${work.releaseYear})` : ''
-          }`,
-          imageUrl: actor.imageUrl,
-          source: 'curated',
-          catalogCountHint: 1,
-        });
-      }
-    }
-  }
-
-  // 2. Search Wikidata entities and TMDB person search in parallel
+  // Search Wikidata entities and TMDB person search in parallel
   const cleanKey = tmdbKey?.trim();
 
   const wikidataPromise = (async (): Promise<ActorSearchCandidate[]> => {
@@ -731,7 +700,6 @@ export async function searchActorsAcrossApis(
           hits.find((h) => h.id === qid)?.description ||
           '';
 
-        // Prefer people with acting/performing occupations or descriptions, or keep human matches
         const hasImage =
           claims.P18?.[0]?.mainsnak?.datavalue?.value;
         const imageUrl =
@@ -811,12 +779,12 @@ export async function searchActorsAcrossApis(
     const startsA = na.startsWith(normQuery) ? 1 : 0;
     const startsB = nb.startsWith(normQuery) ? 1 : 0;
     if (startsA !== startsB) return startsB - startsA;
-    const actorDescA = /actor|actress|performer|known for|credited/i.test(
+    const actorDescA = /actor|actress|performer|known for/i.test(
       a.description || ''
     )
       ? 1
       : 0;
-    const actorDescB = /actor|actress|performer|known for|credited/i.test(
+    const actorDescB = /actor|actress|performer|known for/i.test(
       b.description || ''
     )
       ? 1
@@ -828,11 +796,12 @@ export async function searchActorsAcrossApis(
 }
 
 /**
- * Fetches all movies and TV shows for an ActorSearchCandidate using all configured APIs.
+ * Fetches all movies and TV shows for an ActorSearchCandidate using all configured APIs
+ * (without cross-referencing the local catalog).
  */
 export async function fetchFilmographyForCandidate(
   candidate: ActorSearchCandidate,
-  catalogWorks: CatalogMediaWork[],
+  _catalogWorks?: CatalogMediaWork[],
   tmdbKey?: string
 ): Promise<ActorCreditItem[]> {
   let wikidataId = candidate.wikidataId;
@@ -907,7 +876,7 @@ export async function fetchFilmographyForCandidate(
   return fetchActorFilmography(
     syntheticActor,
     syntheticDetails,
-    catalogWorks,
+    [],
     tmdbKey
   );
 }

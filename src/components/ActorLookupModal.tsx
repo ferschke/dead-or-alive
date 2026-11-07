@@ -296,10 +296,8 @@ export const ActorLookupModal: React.FC<ActorLookupModalProps> = ({
               }}
             >
               Search for any actor across{' '}
-              {tmdbKey.trim()
-                ? 'Wikidata, TMDB & your local catalog'
-                : 'Wikidata & your local catalog'}{' '}
-              to view all movies and TV shows they appeared in.
+              {tmdbKey.trim() ? 'Wikidata & TMDB' : 'Wikidata'} to view all
+              movies and TV shows they appeared in.
             </p>
           </div>
           <button
@@ -386,7 +384,7 @@ export const ActorLookupModal: React.FC<ActorLookupModalProps> = ({
                     fontSize: '0.86rem',
                   }}
                 >
-                  Searching local catalog &amp; Wikidata / TMDB APIs...
+                  Searching {tmdbKey.trim() ? 'Wikidata & TMDB APIs' : 'Wikidata API'}...
                 </div>
               ) : suggestions.length === 0 ? (
                 <div
@@ -430,33 +428,11 @@ export const ActorLookupModal: React.FC<ActorLookupModalProps> = ({
                         <span
                           className="media-type-tag"
                           style={{
-                            color:
-                              cand.source === 'curated'
-                                ? 'var(--alive-text)'
-                                : 'var(--accent-gold)',
+                            color: 'var(--accent-gold)',
                           }}
                         >
-                          {cand.source === 'curated'
-                            ? 'Cached in Catalog'
-                            : cand.source === 'tmdb'
-                            ? 'TMDB API'
-                            : 'Wikidata API'}
+                          {cand.source === 'tmdb' ? 'TMDB API' : 'Wikidata API'}
                         </span>
-                        {cand.catalogCountHint !== undefined &&
-                          cand.catalogCountHint > 0 && (
-                            <span
-                              style={{
-                                fontSize: '0.7rem',
-                                color: 'var(--text-muted)',
-                                fontFamily: 'var(--font-mono)',
-                              }}
-                            >
-                              {cand.catalogCountHint}{' '}
-                              {cand.catalogCountHint === 1
-                                ? 'catalog title'
-                                : 'catalog titles'}
-                            </span>
-                          )}
                       </div>
                       {cand.description && (
                         <div className="search-result-meta">

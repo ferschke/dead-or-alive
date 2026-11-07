@@ -2065,6 +2065,13 @@ button {
   gap: 0.65rem;
 }
 
+.actor-lookup-filter-row .cast-filter-input,
+.actor-filmography-modal-card .cast-filter-input {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+}
+
 /* Clear Catalog Confirmation Dialog */
 .clear-catalog-confirm-backdrop {
   z-index: 250;
