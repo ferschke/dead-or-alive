@@ -1,6 +1,8 @@
 # Dead or Alive
 
 ![Dead or Alive Application Screenshot](./docs/screenshot.png)
+![Cast Connections Network](./docs/map.png)
+![Actor Connections Detail](./docs/mapdetail.png)
 
 **Dead or Alive** is a responsive web application built with **Vite + React + TypeScript** that lets you search for any movie or television series and determines how many of its credited cast members are still alive at the exact moment your query is evaluated.
 
