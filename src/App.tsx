@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Database, KeyRound, RefreshCw, Settings2 } from 'lucide-react';
 import { ApiSettingsModal } from './components/ApiSettingsModal';
+import { CastConnectionsSection } from './components/CastConnectionsSection';
 import { CastSplitView } from './components/CastSplitView';
 import { ScoreHero } from './components/ScoreHero';
 import { SearchBar } from './components/SearchBar';
@@ -485,6 +486,16 @@ export function App() {
     [filteredCast, queryTimestamp]
   );
 
+  const allEvaluatedActors = useMemo(
+    () =>
+      [
+        ...analysis.aliveActors,
+        ...analysis.deceasedActors,
+        ...analysis.unknownActors,
+      ].sort((a, b) => a.billingOrder - b.billingOrder),
+    [analysis]
+  );
+
   const handleSelectMatrixActor = (actorId: string) => {
     setHighlightedActorId(actorId);
     const el = document.getElementById(`actor-card-${actorId}`);
@@ -621,6 +632,14 @@ export function App() {
               onSelectMatrixActor={handleSelectMatrixActor}
               hasTmdbKey={Boolean(tmdbKey.trim())}
               onOpenSettings={() => setIsSettingsOpen(true)}
+            />
+
+            <CastConnectionsSection
+              work={activeWork}
+              actors={allEvaluatedActors}
+              catalogWorks={catalogWorks}
+              tmdbKey={tmdbKey}
+              onSelectSharedWork={handleSelectResult}
             />
 
             <CastSplitView
