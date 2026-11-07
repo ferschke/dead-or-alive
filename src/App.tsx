@@ -627,6 +627,8 @@ export function App() {
                 setQueryTimestamp(new Date());
               }}
               onSelectMatrixActor={handleSelectMatrixActor}
+              hasTmdbKey={Boolean(tmdbKey.trim())}
+              onOpenSettings={() => setIsSettingsOpen(true)}
             />
 
             <CastSplitView

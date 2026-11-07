@@ -20,6 +20,8 @@ interface ScoreHeroProps {
   onChangeEvalYear: (year: number | null) => void;
   onRefreshQueryTime: () => void;
   onSelectMatrixActor: (actorId: string) => void;
+  hasTmdbKey?: boolean;
+  onOpenSettings?: () => void;
 }
 
 function getInitials(name: string): string {
@@ -67,6 +69,8 @@ export const ScoreHero: React.FC<ScoreHeroProps> = ({
   onChangeEvalYear,
   onRefreshQueryTime,
   onSelectMatrixActor,
+  hasTmdbKey = false,
+  onOpenSettings,
 }) => {
   const [posterError, setPosterError] = useState(false);
 
@@ -232,6 +236,34 @@ export const ScoreHero: React.FC<ScoreHeroProps> = ({
               <div className="alive-score-sublabel">actors still alive</div>
             </div>
           </div>
+
+          {!hasTmdbKey && (
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              style={{
+                marginTop: '0.15rem',
+                paddingTop: '0.45rem',
+                borderTop: '1px solid var(--border-subtle)',
+                fontSize: '0.72rem',
+                color: 'var(--text-muted)',
+                textAlign: 'left',
+                lineHeight: 1.35,
+              }}
+              title="Open TMDB API configuration"
+            >
+              Additional cast data might be available if you configure the{' '}
+              <span
+                style={{
+                  color: 'var(--accent-gold)',
+                  textDecoration: 'underline',
+                }}
+              >
+                TMDB API
+              </span>
+              .
+            </button>
+          )}
         </div>
       </div>
 

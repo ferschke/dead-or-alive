@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   CheckCircle2,
   Database,
+  ExternalLink,
   KeyRound,
   Trash2,
   X,
@@ -97,12 +98,39 @@ export const ApiSettingsModal: React.FC<ApiSettingsModalProps> = ({
 
         <form className="modal-body" onSubmit={handleSave}>
           <p>
-            Titles not yet in your local catalog are automatically retrieved
-            from the <strong>Wikidata API</strong> and cached locally across
-            sessions. When a <strong>TMDB API Key</strong> is configured below,
-            additional TMDB cast, role, poster, and biographical data are
-            fetched and merged into the cached catalog entry.
+            By default, titles are retrieved using <strong>Wikidata</strong>.
+            Configuring a free <strong>TMDB API Key</strong> provides
+            significantly more comprehensive cast information compared to using
+            Wikidata alone — including extended movie and TV series cast lists,
+            character names, actor portraits, and additional biographical birth
+            and death dates merged directly into your catalog.
           </p>
+
+          <div
+            style={{
+              padding: '0.65rem 0.85rem',
+              borderRadius: 'var(--radius-sm)',
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border-subtle)',
+              fontSize: '0.82rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '0.75rem',
+              flexWrap: 'wrap',
+            }}
+          >
+            <span>Don&apos;t have a key yet? You can get one for free on TMDB:</span>
+            <a
+              href="https://www.themoviedb.org/settings/api"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="external-link"
+              style={{ fontSize: '0.82rem', whiteSpace: 'nowrap' }}
+            >
+              Get a free TMDB API Key <ExternalLink size={13} />
+            </a>
+          </div>
 
           <div>
             <label
