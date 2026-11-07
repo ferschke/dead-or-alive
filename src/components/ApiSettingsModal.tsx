@@ -122,7 +122,7 @@ export const ApiSettingsModal: React.FC<ApiSettingsModalProps> = ({
           >
             <span>Don&apos;t have a key yet? You can get one for free on TMDB:</span>
             <a
-              href="https://www.themoviedb.org/settings/api"
+              href="https://developer.themoviedb.org/docs/getting-started"
               target="_blank"
               rel="noopener noreferrer"
               className="external-link"
