@@ -106,6 +106,8 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             ? fresh[activeIndex]
             : fresh[0];
         onSelectResult(chosen);
+        setQuery("");
+        setResults([]);
       }
     } finally {
       setIsSearching(false);
@@ -236,7 +238,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                   onMouseEnter={() => setActiveIndex(idx)}
                   onClick={() => {
                     setIsOpen(false);
-                    setQuery(item.title);
+                    setQuery(""); setResults([]);
                     setSubmittedMatches(results.slice(0, 6));
                     onSelectResult(item);
                   }}
