@@ -1,13 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowUpRight,
   Film,
   Loader2,
+  Maximize2,
   Network,
   Share2,
   Tv,
   Users,
   X,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react';
 import type { CatalogMediaWork } from '../services/catalogStorage';
 import {
@@ -34,6 +37,8 @@ interface PositionedNode {
   actor: EvaluatedActor;
   x: number;
   y: number;
+  angle: number;
+  ring: 'inner' | 'outer' | 'single';
   degree: number;
   totalCollaborations: number;
 }
@@ -45,21 +50,59 @@ function getInitials(name: string): string {
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
 
+function formatCompactMobileName(name: string, maxLen = 15): string {
+  const trimmed = name.trim();
+  if (trimmed.length <= maxLen) return trimmed;
+  const parts = trimmed.split(/\s+/);
+  if (parts.length >= 2) {
+    const shortFirst = `${parts[0][0]}. ${parts[parts.length - 1]}`;
+    if (shortFirst.length <= maxLen + 2) return shortFirst;
+  }
+  return `${trimmed.slice(0, maxLen - 1)}…`;
+}
+
 function computeLineThickness(sharedCount: number): number {
   if (sharedCount <= 1) return 2.2;
   return Math.min(2.2 + (sharedCount - 1) * 1.65, 10.5);
 }
 
 /**
+ * Detects whether the app is being accessed from a mobile or tablet device
+ * (iPhone, iPad, Android phone/tablet, or coarse-pointer touch screen).
+ */
+function detectMobileDevice(): {
+  isMobileOrTablet: boolean;
+  isCompactViewport: boolean;
+} {
+  if (typeof window === 'undefined') {
+    return { isMobileOrTablet: false, isCompactViewport: false };
+  }
+  const ua = navigator.userAgent || '';
+  const isMobileUa = /iPhone|iPad|iPod|Android|Mobile|Tablet/i.test(ua);
+  const isIPadOS =
+    navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+  const isCoarsePointer = Boolean(
+    window.matchMedia?.('(hover: none) and (pointer: coarse)').matches
+  );
+  const isNarrowScreen = window.innerWidth <= 768;
+  return {
+    isMobileOrTablet: Boolean(
+      isMobileUa || isIPadOS || isCoarsePointer || isNarrowScreen
+    ),
+    isCompactViewport: isNarrowScreen,
+  };
+}
+
+/**
  * Computes a clean, deterministic 2D network layout for all cast members of the current work.
- * Connected cast members are arranged in an inner force-relaxed ring so connecting lines
- * are clear and non-overlapping, while unconnected cast members form an outer ring.
+ * Desktop layout parameters remain untouched; mobile layout optimizes ring geometry for portrait screens.
  */
 function computeNetworkLayout(
   actors: EvaluatedActor[],
   graph: CastConnectionsGraph | null,
   width: number,
-  height: number
+  height: number,
+  isCompactMobile = false
 ): PositionedNode[] {
   const cx = width / 2;
   const cy = height / 2;
@@ -87,12 +130,19 @@ function computeNetworkLayout(
     return a.billingOrder - b.billingOrder;
   });
 
-  const positions = new Map<string, { x: number; y: number }>();
+  const positions = new Map<
+    string,
+    { x: number; y: number; angle: number; ring: 'inner' | 'outer' | 'single' }
+  >();
 
   if (connectedActors.length > 0 && unconnectedActors.length > 0) {
     // Dual-ring layout: connected actors in inner ring, unconnected in outer ring
-    const innerRx = Math.min(width * 0.28, 255);
-    const innerRy = Math.min(height * 0.28, 175);
+    const innerRx = isCompactMobile
+      ? Math.min(width * 0.25, 155)
+      : Math.min(width * 0.28, 255);
+    const innerRy = isCompactMobile
+      ? Math.min(height * 0.25, 195)
+      : Math.min(height * 0.28, 175);
 
     connectedActors.forEach((actor, idx) => {
       const angle =
@@ -102,48 +152,74 @@ function computeNetworkLayout(
       positions.set(actor.id, {
         x: cx + Math.cos(angle) * innerRx * stagger,
         y: cy + Math.sin(angle) * innerRy * stagger,
+        angle,
+        ring: 'inner',
       });
     });
 
-    const outerRx = Math.min(width * 0.43, 395);
-    const outerRy = Math.min(height * 0.42, 260);
+    const outerRx = isCompactMobile
+      ? Math.min(width * 0.41, 255)
+      : Math.min(width * 0.43, 395);
+    const outerRy = isCompactMobile
+      ? Math.min(height * 0.41, 315)
+      : Math.min(height * 0.42, 260);
     unconnectedActors.forEach((actor, idx) => {
       const angle =
         -Math.PI / 2 + (idx / unconnectedActors.length) * Math.PI * 2;
       positions.set(actor.id, {
         x: cx + Math.cos(angle) * outerRx,
         y: cy + Math.sin(angle) * outerRy,
+        angle,
+        ring: 'outer',
       });
     });
   } else {
-    // Single ring (or two concentric rings if cast > 28)
+    // Single ring (or two concentric rings if cast > 28, or > 20 on compact mobile)
     const list =
       connectedActors.length > 0 ? connectedActors : unconnectedActors;
-    if (list.length <= 26) {
-      const rx = Math.min(width * 0.37, 345);
-      const ry = Math.min(height * 0.37, 230);
+    const singleRingThreshold = isCompactMobile ? 18 : 26;
+
+    if (list.length <= singleRingThreshold) {
+      const rx = isCompactMobile
+        ? Math.min(width * 0.37, 230)
+        : Math.min(width * 0.37, 345);
+      const ry = isCompactMobile
+        ? Math.min(height * 0.38, 290)
+        : Math.min(height * 0.37, 230);
       list.forEach((actor, idx) => {
         const angle = -Math.PI / 2 + (idx / list.length) * Math.PI * 2;
         const stagger = idx % 2 === 0 ? 1 : 0.9;
         positions.set(actor.id, {
           x: cx + Math.cos(angle) * rx * stagger,
           y: cy + Math.sin(angle) * ry * stagger,
+          angle,
+          ring: 'single',
         });
       });
     } else {
       const innerCount = Math.ceil(list.length * 0.42);
       const innerList = list.slice(0, innerCount);
       const outerList = list.slice(innerCount);
-      const innerRx = Math.min(width * 0.25, 230);
-      const innerRy = Math.min(height * 0.25, 155);
-      const outerRx = Math.min(width * 0.42, 390);
-      const outerRy = Math.min(height * 0.41, 255);
+      const innerRx = isCompactMobile
+        ? Math.min(width * 0.24, 150)
+        : Math.min(width * 0.25, 230);
+      const innerRy = isCompactMobile
+        ? Math.min(height * 0.24, 185)
+        : Math.min(height * 0.25, 155);
+      const outerRx = isCompactMobile
+        ? Math.min(width * 0.41, 255)
+        : Math.min(width * 0.42, 390);
+      const outerRy = isCompactMobile
+        ? Math.min(height * 0.41, 315)
+        : Math.min(height * 0.41, 255);
 
       innerList.forEach((actor, idx) => {
         const angle = -Math.PI / 2 + (idx / innerList.length) * Math.PI * 2;
         positions.set(actor.id, {
           x: cx + Math.cos(angle) * innerRx,
           y: cy + Math.sin(angle) * innerRy,
+          angle,
+          ring: 'inner',
         });
       });
       outerList.forEach((actor, idx) => {
@@ -151,13 +227,20 @@ function computeNetworkLayout(
         positions.set(actor.id, {
           x: cx + Math.cos(angle) * outerRx,
           y: cy + Math.sin(angle) * outerRy,
+          angle,
+          ring: 'outer',
         });
       });
     }
   }
 
   return actors.map((actor) => {
-    const pos = positions.get(actor.id) || { x: cx, y: cy };
+    const pos = positions.get(actor.id) || {
+      x: cx,
+      y: cy,
+      angle: 0,
+      ring: 'single' as const,
+    };
     const conns = connectionsMap[actor.id] || [];
     const totalCollaborations = conns.reduce(
       (acc, c) => acc + c.sharedWorks.length,
@@ -167,6 +250,8 @@ function computeNetworkLayout(
       actor,
       x: pos.x,
       y: pos.y,
+      angle: pos.angle,
+      ring: pos.ring,
       degree: conns.length,
       totalCollaborations,
     };
@@ -185,6 +270,41 @@ export function CastConnectionsSection({
   const [isNetworkModalOpen, setIsNetworkModalOpen] = useState(false);
   const [selectedActorId, setSelectedActorId] = useState<string | null>(null);
   const [hoveredActorId, setHoveredActorId] = useState<string | null>(null);
+
+  // Mobile/tablet state: first tap highlights node connections, second tap opens detail dialog
+  const [deviceInfo, setDeviceInfo] = useState(detectMobileDevice);
+  const [mobileHighlightedActorId, setMobileHighlightedActorId] = useState<
+    string | null
+  >(null);
+  const [mobileZoom, setMobileZoom] = useState<number>(1);
+  const [mobilePan, setMobilePan] = useState<{ x: number; y: number }>({
+    x: 0,
+    y: 0,
+  });
+  const touchDragRef = useRef<{
+    startX: number;
+    startY: number;
+    originPanX: number;
+    originPanY: number;
+    moved: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    const updateDevice = () => {
+      setDeviceInfo(detectMobileDevice());
+    };
+    window.addEventListener('resize', updateDevice);
+    return () => window.removeEventListener('resize', updateDevice);
+  }, []);
+
+  const { isMobileOrTablet, isCompactViewport } = deviceInfo;
+
+  // Reset mobile highlight & zoom when switching works or closing the modal
+  useEffect(() => {
+    setMobileHighlightedActorId(null);
+    setMobileZoom(1);
+    setMobilePan({ x: 0, y: 0 });
+  }, [work.id, isNetworkModalOpen]);
 
   // Fetch cast connections whenever the active work or cast changes
   useEffect(() => {
@@ -235,12 +355,20 @@ export function CastConnectionsSection({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isNetworkModalOpen, selectedActorId]);
 
-  const svgWidth = 940;
-  const svgHeight = 600;
+  // Keep desktop dimensions (940x600) strictly unchanged; use portrait-optimized canvas on compact mobile viewports
+  const svgWidth = isCompactViewport ? 620 : 940;
+  const svgHeight = isCompactViewport ? 760 : 600;
 
   const positionedNodes = useMemo(
-    () => computeNetworkLayout(actors, graph, svgWidth, svgHeight),
-    [actors, graph]
+    () =>
+      computeNetworkLayout(
+        actors,
+        graph,
+        svgWidth,
+        svgHeight,
+        isCompactViewport
+      ),
+    [actors, graph, svgWidth, svgHeight, isCompactViewport]
   );
 
   const nodeById = useMemo(() => {
@@ -256,18 +384,85 @@ export function CastConnectionsSection({
     [actors, selectedActorId]
   );
 
+  const mobileHighlightedActor = useMemo(
+    () => actors.find((a) => a.id === mobileHighlightedActorId) || null,
+    [actors, mobileHighlightedActorId]
+  );
+
   const selectedActorConnections = useMemo(() => {
     if (!selectedActor || !graph) return [];
     return graph.connectionsByActorId[selectedActor.id] || [];
   }, [selectedActor, graph]);
 
+  const mobileHighlightedConnections = useMemo(() => {
+    if (!mobileHighlightedActor || !graph) return [];
+    return graph.connectionsByActorId[mobileHighlightedActor.id] || [];
+  }, [mobileHighlightedActor, graph]);
+
+  // Active highlight ID: on mobile/tablet driven by first tap; on desktop driven by hover
+  const activeHighlightId = isMobileOrTablet
+    ? mobileHighlightedActorId
+    : hoveredActorId;
+
+  // On mobile, sort nodes so the highlighted actor and its neighbors render on top of dimmed nodes
+  const renderedNodes = useMemo(() => {
+    if (!isMobileOrTablet || !activeHighlightId) return positionedNodes;
+    const neighborIds = new Set(
+      (graph?.connectionsByActorId[activeHighlightId] || []).map(
+        (c) => c.otherActor.id
+      )
+    );
+    return [...positionedNodes].sort((a, b) => {
+      const rankA =
+        a.actor.id === activeHighlightId
+          ? 2
+          : neighborIds.has(a.actor.id)
+          ? 1
+          : 0;
+      const rankB =
+        b.actor.id === activeHighlightId
+          ? 2
+          : neighborIds.has(b.actor.id)
+          ? 1
+          : 0;
+      return rankA - rankB;
+    });
+  }, [isMobileOrTablet, activeHighlightId, positionedNodes, graph]);
+
+  const handleNodeSelect = (actorId: string) => {
+    if (isMobileOrTablet) {
+      // On mobile/tablet: first selection highlights connections; second selection on same node opens detail view
+      if (mobileHighlightedActorId === actorId) {
+        setSelectedActorId(actorId);
+      } else {
+        setMobileHighlightedActorId(actorId);
+      }
+    } else {
+      // Desktop behavior unchanged: immediately open the detail dialog
+      setSelectedActorId(actorId);
+    }
+  };
+
   const handleClickSharedProduction = (prod: SharedProduction) => {
     const searchItem = sharedProductionToSearchResult(prod);
     setSelectedActorId(null);
+    setMobileHighlightedActorId(null);
     setIsNetworkModalOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
     onSelectSharedWork(searchItem);
   };
+
+  // Compute viewBox for mobile zoom/pan (desktop always uses "0 0 940 600")
+  const effectiveViewBox = useMemo(() => {
+    if (!isMobileOrTablet || (mobileZoom === 1 && mobilePan.x === 0 && mobilePan.y === 0)) {
+      return `0 0 ${svgWidth} ${svgHeight}`;
+    }
+    const vw = svgWidth / mobileZoom;
+    const vh = svgHeight / mobileZoom;
+    const vx = (svgWidth - vw) / 2 - mobilePan.x;
+    const vy = (svgHeight - vh) / 2 - mobilePan.y;
+    return `${vx} ${vy} ${vw} ${vh}`;
+  }, [isMobileOrTablet, mobileZoom, mobilePan, svgWidth, svgHeight]);
 
   const edgeCount = graph?.edges.length ?? 0;
   const connectedActorCount = graph?.totalConnectedActors ?? 0;
@@ -357,17 +552,29 @@ export function CastConnectionsSection({
                   Cast Connections — {work.title}
                 </h2>
                 <p
+                  className="cast-network-subtitle"
                   style={{
                     fontSize: '0.82rem',
                     color: 'var(--text-secondary)',
                     marginTop: '0.2rem',
                   }}
                 >
-                  All {actors.length} cast members are shown as nodes. Lines
-                  connect actors who appeared together in another production
-                  (line thickness = number of shared movies or shows).{' '}
-                  <strong>Click any actor node</strong> to view their connected
-                  co-stars and shared titles.
+                  {isMobileOrTablet ? (
+                    <>
+                      All {actors.length} cast members are shown as nodes.{' '}
+                      <strong>Tap a node once</strong> to highlight its
+                      connections, then <strong>tap it again</strong> to view
+                      shared movies &amp; shows.
+                    </>
+                  ) : (
+                    <>
+                      All {actors.length} cast members are shown as nodes. Lines
+                      connect actors who appeared together in another production
+                      (line thickness = number of shared movies or shows).{' '}
+                      <strong>Click any actor node</strong> to view their
+                      connected co-stars and shared titles.
+                    </>
+                  )}
                 </p>
               </div>
               <button
@@ -417,7 +624,54 @@ export function CastConnectionsSection({
               </div>
             </div>
 
-            <div className="cast-network-canvas-wrap">
+            <div
+              className="cast-network-canvas-wrap"
+              onTouchStart={
+                isMobileOrTablet
+                  ? (e) => {
+                      if (e.touches.length === 1) {
+                        touchDragRef.current = {
+                          startX: e.touches[0].clientX,
+                          startY: e.touches[0].clientY,
+                          originPanX: mobilePan.x,
+                          originPanY: mobilePan.y,
+                          moved: false,
+                        };
+                      }
+                    }
+                  : undefined
+              }
+              onTouchMove={
+                isMobileOrTablet
+                  ? (e) => {
+                      if (
+                        e.touches.length === 1 &&
+                        touchDragRef.current &&
+                        mobileZoom > 1
+                      ) {
+                        const dx =
+                          e.touches[0].clientX - touchDragRef.current.startX;
+                        const dy =
+                          e.touches[0].clientY - touchDragRef.current.startY;
+                        if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
+                          touchDragRef.current.moved = true;
+                          setMobilePan({
+                            x: touchDragRef.current.originPanX + dx * 1.2,
+                            y: touchDragRef.current.originPanY + dy * 1.2,
+                          });
+                        }
+                      }
+                    }
+                  : undefined
+              }
+              onTouchEnd={
+                isMobileOrTablet
+                  ? () => {
+                      touchDragRef.current = null;
+                    }
+                  : undefined
+              }
+            >
               {isLoadingGraph && (
                 <div className="cast-network-loading-overlay">
                   <div className="spinner" />
@@ -427,12 +681,64 @@ export function CastConnectionsSection({
                 </div>
               )}
 
+              {isMobileOrTablet && (
+                <div
+                  className="mobile-network-zoom-controls"
+                  aria-label="Map zoom controls"
+                >
+                  <button
+                    type="button"
+                    className="mobile-zoom-btn"
+                    onClick={() =>
+                      setMobileZoom((z) => Math.min(z + 0.35, 2.4))
+                    }
+                    aria-label="Zoom in"
+                  >
+                    <ZoomIn size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    className="mobile-zoom-btn"
+                    onClick={() => {
+                      setMobileZoom((z) => {
+                        const next = Math.max(z - 0.35, 1);
+                        if (next === 1) setMobilePan({ x: 0, y: 0 });
+                        return next;
+                      });
+                    }}
+                    aria-label="Zoom out"
+                  >
+                    <ZoomOut size={15} />
+                  </button>
+                  {(mobileZoom > 1 ||
+                    mobilePan.x !== 0 ||
+                    mobilePan.y !== 0) && (
+                    <button
+                      type="button"
+                      className="mobile-zoom-btn"
+                      onClick={() => {
+                        setMobileZoom(1);
+                        setMobilePan({ x: 0, y: 0 });
+                      }}
+                      aria-label="Reset map view"
+                    >
+                      <Maximize2 size={14} />
+                    </button>
+                  )}
+                </div>
+              )}
+
               <svg
                 className="cast-network-svg"
-                viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+                viewBox={effectiveViewBox}
                 preserveAspectRatio="xMidYMid meet"
                 role="img"
                 aria-label={`Cast connections network graph for ${work.title}`}
+                onClick={(e) => {
+                  if (isMobileOrTablet && e.target === e.currentTarget) {
+                    setMobileHighlightedActorId(null);
+                  }
+                }}
               >
                 {/* Single line per connected actor pair, thickness scaled by number of shared productions */}
                 <g className="network-edges-layer">
@@ -444,12 +750,12 @@ export function CastConnectionsSection({
                     const sharedCount = edge.sharedWorks.length;
                     const strokeWidth = computeLineThickness(sharedCount);
                     const isHighlighted =
-                      hoveredActorId === edge.actor1Id ||
-                      hoveredActorId === edge.actor2Id ||
+                      activeHighlightId === edge.actor1Id ||
+                      activeHighlightId === edge.actor2Id ||
                       selectedActorId === edge.actor1Id ||
                       selectedActorId === edge.actor2Id;
                     const isDimmed =
-                      hoveredActorId !== null && !isHighlighted;
+                      activeHighlightId !== null && !isHighlighted;
 
                     const midX = (n1.x + n2.x) / 2;
                     const midY = (n1.y + n2.y) / 2;
@@ -470,7 +776,7 @@ export function CastConnectionsSection({
                           }
                           strokeWidth={strokeWidth}
                           strokeLinecap="round"
-                          opacity={isDimmed ? 0.16 : 1}
+                          opacity={isDimmed ? 0.14 : 1}
                         >
                           <title>
                             {n1.actor.name} &amp; {n2.actor.name}: {sharedCount}{' '}
@@ -510,28 +816,37 @@ export function CastConnectionsSection({
 
                 {/* Actor Nodes Layer */}
                 <g className="network-nodes-layer">
-                  {positionedNodes.map((node) => {
-                    const { actor, x, y, degree } = node;
-                    const isHovered = hoveredActorId === actor.id;
-                    const isNeighborOfHovered =
-                      hoveredActorId !== null &&
-                      (graph?.connectionsByActorId[hoveredActorId] || []).some(
+                  {renderedNodes.map((node) => {
+                    const { actor, x, y, angle, ring, degree } = node;
+                    const isHighlightedNode = activeHighlightId === actor.id;
+                    const isNeighborOfHighlighted =
+                      activeHighlightId !== null &&
+                      (graph?.connectionsByActorId[activeHighlightId] || []).some(
                         (c) => c.otherActor.id === actor.id
                       );
                     const isDimmed =
-                      hoveredActorId !== null &&
-                      !isHovered &&
-                      !isNeighborOfHovered;
+                      activeHighlightId !== null &&
+                      !isHighlightedNode &&
+                      !isNeighborOfHighlighted;
 
-                    const baseRadius =
-                      actors.length > 35
+                    const baseRadius = isCompactViewport
+                      ? actors.length > 35
                         ? degree > 0
-                          ? 15
-                          : 12
+                          ? 16
+                          : 12.5
                         : degree > 0
-                        ? 19
-                        : 15;
-                    const radius = isHovered ? baseRadius + 3 : baseRadius;
+                        ? 19.5
+                        : 15
+                      : actors.length > 35
+                      ? degree > 0
+                        ? 15
+                        : 12
+                      : degree > 0
+                      ? 19
+                      : 15;
+                    const radius = isHighlightedNode
+                      ? baseRadius + 3.5
+                      : baseRadius;
 
                     const fillColor =
                       actor.status === 'alive'
@@ -546,6 +861,34 @@ export function CastConnectionsSection({
                         ? '#f59e0b'
                         : '#9ca3af';
 
+                    // On compact mobile viewports, position outer ring labels radially outward to avoid vertical overlap
+                    let labelX = 0;
+                    let labelY = radius + 13;
+                    let labelAnchor: 'middle' | 'start' | 'end' = 'middle';
+
+                    if (isCompactViewport && ring !== 'inner') {
+                      const cosA = Math.cos(angle);
+                      const sinA = Math.sin(angle);
+                      const offset = radius + 8;
+                      if (Math.abs(cosA) > 0.38) {
+                        labelX = cosA > 0 ? offset : -offset;
+                        labelY = sinA * 5 + 3;
+                        labelAnchor = cosA > 0 ? 'start' : 'end';
+                      } else {
+                        labelX = 0;
+                        labelY = sinA >= 0 ? radius + 14 : -(radius + 8);
+                        labelAnchor = 'middle';
+                      }
+                    }
+
+                    const displayLabel =
+                      isCompactViewport &&
+                      !isHighlightedNode &&
+                      !isNeighborOfHighlighted &&
+                      actors.length > 18
+                        ? formatCompactMobileName(actor.name)
+                        : actor.name;
+
                     return (
                       <g
                         key={actor.id}
@@ -553,23 +896,33 @@ export function CastConnectionsSection({
                         transform={`translate(${x}, ${y})`}
                         style={{
                           cursor: 'pointer',
-                          opacity: isDimmed ? 0.32 : 1,
+                          opacity: isDimmed ? 0.25 : 1,
                         }}
                         role="button"
                         tabIndex={0}
                         aria-label={`${actor.name} (${degree} connected co-stars)`}
-                        onClick={() => setSelectedActorId(actor.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleNodeSelect(actor.id);
+                        }}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault();
-                            setSelectedActorId(actor.id);
+                            handleNodeSelect(actor.id);
                           }
                         }}
-                        onMouseEnter={() => setHoveredActorId(actor.id)}
-                        onMouseLeave={() =>
-                          setHoveredActorId((prev) =>
-                            prev === actor.id ? null : prev
-                          )
+                        onMouseEnter={
+                          !isMobileOrTablet
+                            ? () => setHoveredActorId(actor.id)
+                            : undefined
+                        }
+                        onMouseLeave={
+                          !isMobileOrTablet
+                            ? () =>
+                                setHoveredActorId((prev) =>
+                                  prev === actor.id ? null : prev
+                                )
+                            : undefined
                         }
                       >
                         <title>
@@ -585,16 +938,18 @@ export function CastConnectionsSection({
                             r={radius + 4}
                             fill="none"
                             stroke={
-                              isHovered ? '#38bdf8' : 'rgba(56, 189, 248, 0.28)'
+                              isHighlightedNode
+                                ? '#38bdf8'
+                                : 'rgba(56, 189, 248, 0.28)'
                             }
-                            strokeWidth={isHovered ? 2 : 1.2}
+                            strokeWidth={isHighlightedNode ? 2.4 : 1.2}
                           />
                         )}
 
                         <circle
                           r={radius}
                           fill={fillColor}
-                          stroke={isHovered ? '#f8fafc' : strokeColor}
+                          stroke={isHighlightedNode ? '#f8fafc' : strokeColor}
                           strokeWidth={degree > 0 ? 2.4 : 1.6}
                         />
 
@@ -637,11 +992,34 @@ export function CastConnectionsSection({
                         )}
 
                         <text
-                          y={radius + 13}
-                          textAnchor="middle"
-                          fill={degree > 0 ? '#f3f4f6' : '#9ca3af'}
-                          fontSize={actors.length > 35 ? '9.5' : '11'}
-                          fontWeight={degree > 0 ? '600' : '400'}
+                          x={labelX}
+                          y={labelY}
+                          textAnchor={labelAnchor}
+                          fill={
+                            isHighlightedNode || isNeighborOfHighlighted
+                              ? '#ffffff'
+                              : degree > 0
+                              ? '#f3f4f6'
+                              : '#9ca3af'
+                          }
+                          fontSize={
+                            isCompactViewport
+                              ? isHighlightedNode || isNeighborOfHighlighted
+                                ? '11.5'
+                                : actors.length > 30
+                                ? '9.5'
+                                : '10.5'
+                              : actors.length > 35
+                              ? '9.5'
+                              : '11'
+                          }
+                          fontWeight={
+                            isHighlightedNode ||
+                            isNeighborOfHighlighted ||
+                            degree > 0
+                              ? '600'
+                              : '400'
+                          }
                           fontFamily="var(--font-sans)"
                           paintOrder="stroke"
                           stroke="#090b10"
@@ -650,7 +1028,7 @@ export function CastConnectionsSection({
                           strokeLinejoin="round"
                           pointerEvents="none"
                         >
-                          {actor.name}
+                          {displayLabel}
                         </text>
                       </g>
                     );
@@ -658,6 +1036,42 @@ export function CastConnectionsSection({
                 </g>
               </svg>
             </div>
+
+            {isMobileOrTablet && mobileHighlightedActor && (
+              <div className="mobile-node-selection-bar" role="status">
+                <div className="mobile-node-selection-info">
+                  <span
+                    className={`legend-dot ${
+                      mobileHighlightedActor.status === 'alive'
+                        ? 'alive'
+                        : 'deceased'
+                    }`}
+                  />
+                  <div>
+                    <div className="mobile-node-selection-name">
+                      {mobileHighlightedActor.name}
+                      <span className="mobile-node-selection-count">
+                        {mobileHighlightedConnections.length} connected{' '}
+                        {mobileHighlightedConnections.length === 1
+                          ? 'co-star'
+                          : 'co-stars'}
+                      </span>
+                    </div>
+                    <div className="mobile-node-selection-hint">
+                      Tap node again to open shared movies &amp; shows list
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="mobile-node-open-detail-btn"
+                  onClick={() => setSelectedActorId(mobileHighlightedActor.id)}
+                >
+                  <span>View List</span>
+                  <ArrowUpRight size={14} />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
