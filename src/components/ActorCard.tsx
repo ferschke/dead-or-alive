@@ -132,12 +132,12 @@ export const ActorCard: React.FC<ActorCardProps> = ({
         </div>
 
         {showAgeAtRelease && (
-          <div
-            className="actor-dates-row"
-            title="Based on release year; may be off by one year"
-          >
-            <span>
-              Age at release ({releaseYear}): {ageAtRelease}
+          <div style={{ marginTop: '0.3rem' }}>
+            <span
+              className="actor-age-pill release"
+              title="Based on release year; may be off by one year"
+            >
+              {`Age at release · ${ageAtRelease}`}
             </span>
           </div>
         )}

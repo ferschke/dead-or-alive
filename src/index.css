@@ -1178,6 +1178,12 @@ button {
   border: 1px solid var(--deceased-border);
 }
 
+.actor-age-pill.release {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
+}
+
 .actor-character {
   font-size: 0.82rem;
   color: var(--text-secondary);
