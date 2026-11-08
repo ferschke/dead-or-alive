@@ -13,6 +13,7 @@ import { ApiSettingsModal } from './components/ApiSettingsModal';
 import { CastConnectionsSection } from './components/CastConnectionsSection';
 import { CastSplitView } from './components/CastSplitView';
 import { ScoreHero } from './components/ScoreHero';
+import { getStoredOmdbKey, setStoredOmdbKey } from './services/omdbService';
 import { SearchBar } from './components/SearchBar';
 import {
   cacheWorkInPersistentCatalog,
@@ -71,6 +72,7 @@ export function App() {
     useState(false);
 
   const [tmdbKey, setTmdbKey] = useState<string>(() => getStoredTmdbKey());
+  const [omdbKey, setOmdbKey] = useState<string>(() => getStoredOmdbKey());
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const activeRequestIdRef = useRef(0);
 
@@ -613,6 +615,7 @@ export function App() {
               analysis={analysis}
               onSelectMatrixActor={handleSelectMatrixActor}
               hasTmdbKey={Boolean(tmdbKey.trim())}
+              omdbKey={omdbKey}
               onOpenSettings={() => setIsSettingsOpen(true)}
             />
 
@@ -749,6 +752,11 @@ export function App() {
         onClose={() => setIsSettingsOpen(false)}
         currentTmdbKey={tmdbKey}
         onSaveTmdbKey={handleSaveTmdbKey}
+        currentOmdbKey={omdbKey}
+        onSaveOmdbKey={(key: string) => {
+          setStoredOmdbKey(key);
+          setOmdbKey(key.trim());
+        }}
         catalogWorks={catalogWorks}
         onSelectCatalogWork={handleSelectCatalogId}
         onRemoveCachedWork={(id) => {

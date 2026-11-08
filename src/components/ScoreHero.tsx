@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Clock,
   ExternalLink,
@@ -10,12 +10,14 @@ import type {
   EvaluatedActor,
   MediaWork,
 } from '../types/media';
+import { fetchOmdbRatings, type OmdbRatings } from '../services/omdbService';
 
 interface ScoreHeroProps {
   work: MediaWork;
   analysis: CastVitalityAnalysis;
   onSelectMatrixActor: (actorId: string) => void;
   hasTmdbKey?: boolean;
+  omdbKey?: string;
   onOpenSettings?: () => void;
 }
 
@@ -62,9 +64,27 @@ export const ScoreHero: React.FC<ScoreHeroProps> = ({
   analysis,
   onSelectMatrixActor,
   hasTmdbKey = false,
+  omdbKey = '',
   onOpenSettings,
 }) => {
   const [posterError, setPosterError] = useState(false);
+  const [ratings, setRatings] = useState<OmdbRatings | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setRatings(null);
+    if (!omdbKey.trim()) return;
+    fetchOmdbRatings(work, omdbKey)
+      .then((r) => {
+        if (!cancelled) setRatings(r);
+      })
+      .catch(() => {
+        if (!cancelled) setRatings(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [work.id, work.title, work.releaseYear, omdbKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const queryYear = analysis.queryTimestamp.getFullYear();
 
@@ -175,6 +195,45 @@ export const ScoreHero: React.FC<ScoreHeroProps> = ({
                 </a>
               )}
             </div>
+            {omdbKey.trim() &&
+              ratings &&
+              (ratings.imdbRating ||
+                ratings.rottenTomatoes ||
+                ratings.metacritic) && (
+                <div
+                  className="work-credits-row"
+                  aria-label="Ratings"
+                  style={{ gap: '0.9rem', flexWrap: 'wrap' }}
+                >
+                  {ratings.imdbRating && (
+                    <span className="work-credit-item">
+                      IMDb:{' '}
+                      {ratings.imdbId ? (
+                        <a
+                          href={`https://www.imdb.com/title/${ratings.imdbId}/`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="external-link"
+                        >
+                          <strong>{ratings.imdbRating}</strong>
+                        </a>
+                      ) : (
+                        <strong>{ratings.imdbRating}</strong>
+                      )}
+                    </span>
+                  )}
+                  {ratings.rottenTomatoes && (
+                    <span className="work-credit-item">
+                      Rotten Tomatoes: <strong>{ratings.rottenTomatoes}</strong>
+                    </span>
+                  )}
+                  {ratings.metacritic && (
+                    <span className="work-credit-item">
+                      Metacritic: <strong>{ratings.metacritic}</strong>
+                    </span>
+                  )}
+                </div>
+              )}
           </div>
         </div>
 

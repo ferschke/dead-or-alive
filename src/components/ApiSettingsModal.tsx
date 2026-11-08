@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   CheckCircle2,
   Database,
@@ -9,12 +9,20 @@ import {
 } from 'lucide-react';
 import type { CatalogMediaWork } from '../services/catalogStorage';
 import { validateTmdbKey } from '../services/tmdbService';
+import {
+  getOmdbUsage,
+  OMDB_USAGE_EVENT,
+  validateOmdbKey,
+  type OmdbUsage,
+} from '../services/omdbService';
 
 interface ApiSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentTmdbKey: string;
   onSaveTmdbKey: (key: string) => void;
+  currentOmdbKey: string;
+  onSaveOmdbKey: (key: string) => void;
   catalogWorks: CatalogMediaWork[];
   onSelectCatalogWork: (id: string) => void;
   onRemoveCachedWork: (id: string) => void;
@@ -26,13 +34,24 @@ export const ApiSettingsModal: React.FC<ApiSettingsModalProps> = ({
   onClose,
   currentTmdbKey,
   onSaveTmdbKey,
+  currentOmdbKey,
+  onSaveOmdbKey,
   catalogWorks,
   onSelectCatalogWork,
   onRemoveCachedWork,
   onClearUserCache,
 }) => {
   const [inputKey, setInputKey] = useState(currentTmdbKey);
+  const [inputOmdbKey, setInputOmdbKey] = useState(currentOmdbKey);
+  const [omdbUsage, setOmdbUsage] = useState<OmdbUsage>(() => getOmdbUsage());
   const [testing, setTesting] = useState(false);
+
+  useEffect(() => {
+    const update = () => setOmdbUsage(getOmdbUsage());
+    window.addEventListener(OMDB_USAGE_EVENT, update);
+    update();
+    return () => window.removeEventListener(OMDB_USAGE_EVENT, update);
+  }, [isOpen]);
   const [statusMsg, setStatusMsg] = useState<{
     type: 'ok' | 'err';
     text: string;
@@ -44,6 +63,25 @@ export const ApiSettingsModal: React.FC<ApiSettingsModalProps> = ({
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const cleanedOmdb = inputOmdbKey.trim();
+    if (cleanedOmdb !== currentOmdbKey.trim()) {
+      if (cleanedOmdb) {
+        setTesting(true);
+        setStatusMsg(null);
+        const okOmdb = await validateOmdbKey(cleanedOmdb);
+        setTesting(false);
+        if (!okOmdb) {
+          setStatusMsg({
+            type: 'err',
+            text: 'Could not verify OMDb key. Please check the key (and that you activated it via the email link).',
+          });
+          return;
+        }
+      }
+      onSaveOmdbKey(cleanedOmdb);
+    }
+
     const cleaned = inputKey.trim();
     if (!cleaned) {
       onSaveTmdbKey('');
@@ -156,6 +194,70 @@ export const ApiSettingsModal: React.FC<ApiSettingsModalProps> = ({
               value={inputKey}
               onChange={(e) => setInputKey(e.target.value)}
             />
+          </div>
+
+          {/* OMDb (optional, ratings only) */}
+          <div
+            style={{
+              padding: '0.75rem 0.85rem',
+              borderRadius: 'var(--radius-sm)',
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border-subtle)',
+              fontSize: '0.82rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.55rem',
+            }}
+          >
+            <label
+              htmlFor="omdb-api-key-input"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                color: 'var(--text-primary)',
+              }}
+            >
+              <KeyRound size={14} /> OMDb API Key (optional)
+            </label>
+            <span style={{ color: 'var(--text-secondary)' }}>
+              The OMDb key is optional and is used only to retrieve IMDb,
+              Rotten Tomatoes and Metacritic ratings for movie and show
+              details. Without a key, no ratings are shown. A free key (1,000
+              requests per day) is available on the OMDb website; you must
+              activate it via the email link you receive.
+            </span>
+            <a
+              href="https://www.omdbapi.com/apikey.aspx"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="external-link"
+              style={{ fontSize: '0.82rem' }}
+            >
+              Get a free OMDb API Key <ExternalLink size={13} />
+            </a>
+            <input
+              id="omdb-api-key-input"
+              type="password"
+              className="modal-input"
+              placeholder="Paste OMDb API key here (persisted in localStorage)..."
+              value={inputOmdbKey}
+              onChange={(e) => setInputOmdbKey(e.target.value)}
+            />
+            <div
+              style={{
+                fontSize: '0.78rem',
+                color: omdbUsage.limitReached
+                  ? 'var(--deceased-text)'
+                  : 'var(--text-muted)',
+              }}
+            >
+              {omdbUsage.limitReached
+                ? 'Daily OMDb request limit reached. Ratings are unavailable until the limit resets at 00:00 UTC.'
+                : `OMDb requests remaining today: ${omdbUsage.remaining} of ${omdbUsage.limit} (${omdbUsage.used} used from this browser; resets at 00:00 UTC).`}
+            </div>
           </div>
 
           {statusMsg && (
@@ -287,6 +389,19 @@ export const ApiSettingsModal: React.FC<ApiSettingsModalProps> = ({
           </div>
 
           <div className="modal-actions">
+            {currentOmdbKey && (
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => {
+                  setInputOmdbKey('');
+                  onSaveOmdbKey('');
+                  onClose();
+                }}
+              >
+                Remove OMDb Key
+              </button>
+            )}
             {currentTmdbKey && (
               <button
                 type="button"
