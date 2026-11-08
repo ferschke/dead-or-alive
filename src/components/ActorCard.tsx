@@ -50,6 +50,7 @@ export const ActorCard: React.FC<ActorCardProps> = ({
 
   const handleOpenActorDetails = (e: React.MouseEvent | React.KeyboardEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     onSelectActor?.(actor);
   };
 
@@ -59,6 +60,12 @@ export const ActorCard: React.FC<ActorCardProps> = ({
       className={`actor-card ${actor.status} ${
         isHighlighted ? 'highlighted' : ''
       }`}
+      onClick={() => {
+        // Ignore clicks that end a text selection
+        if (window.getSelection()?.toString()) return;
+        onSelectActor?.(actor);
+      }}
+      style={{ cursor: 'pointer' }}
     >
       <div
         className="actor-portrait-wrap clickable"
