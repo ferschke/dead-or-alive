@@ -457,11 +457,7 @@ export const ScoreHero: React.FC<ScoreHeroProps> = ({
           </div>
           <div className="stat-box-sub">
             {analysis.mostRecentlyDeceasedActor
-              ? `${analysis.mostRecentlyDeceasedActor.name}${
-                  analysis.averageAgeAtDeath !== null
-                    ? ` · Avg death age ${analysis.averageAgeAtDeath}`
-                    : ''
-                }`
+              ? analysis.mostRecentlyDeceasedActor.name
               : 'All cast members alive'}
           </div>
         </div>
