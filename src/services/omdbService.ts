@@ -8,7 +8,7 @@ const OMDB_BASE = 'https://www.omdbapi.com/';
 const KEY_STORAGE = 'dead_or_alive_omdb_api_key';
 const USAGE_STORAGE = 'dead_or_alive_omdb_usage';
 const RATINGS_STORAGE = 'dead_or_alive_omdb_ratings';
-const RATINGS_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const RATINGS_TTL_MS = 24 * 60 * 60 * 1000;
 
 /** Free OMDb keys allow 1,000 requests per day (resets at 00:00 UTC). */
 export const OMDB_DAILY_LIMIT = 1000;
@@ -170,7 +170,7 @@ function parseRatings(data: any): OmdbRatings | null {
 }
 
 /**
- * Fetches ratings for a work. Returns cached results when available (7 days)
+ * Fetches ratings for a work. Returns cached results when available (24 hours)
  * so repeat views don't consume quota. Returns null if unavailable.
  */
 export async function fetchOmdbRatings(
