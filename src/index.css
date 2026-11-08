@@ -2853,3 +2853,33 @@ button {
     grid-template-columns: 1fr;
   }
 }
+
+/* Keep all statistics boxes on a single row on tablets and desktops */
+@media (min-width: 769px) {
+  .hero-stats-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  .hero-stats-grid .stat-box {
+    padding: 0.6rem 0.6rem;
+    min-width: 0;
+  }
+
+  .hero-stats-grid .stat-box-label {
+    font-size: 0.6rem;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .hero-stats-grid .stat-box-value {
+    font-size: 0.92rem;
+    white-space: nowrap;
+  }
+
+  .hero-stats-grid .stat-box-sub {
+    font-size: 0.72rem;
+  }
+}

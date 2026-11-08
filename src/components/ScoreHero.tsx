@@ -407,7 +407,7 @@ export const ScoreHero: React.FC<ScoreHeroProps> = ({
       {/* Demographic Context Stats */}
       <div className="hero-stats-grid">
         <div className="stat-box">
-          <div className="stat-box-label">Median Age (Living Cast)</div>
+          <div className="stat-box-label">Median Age (Living)</div>
           <div className="stat-box-value">
             {analysis.medianLivingAge !== null
               ? `${analysis.medianLivingAge} yrs`
@@ -421,7 +421,7 @@ export const ScoreHero: React.FC<ScoreHeroProps> = ({
         </div>
 
         <div {...clickableProps(analysis.oldestLivingActor?.id)}>
-          <div className="stat-box-label">Oldest Living Actor</div>
+          <div className="stat-box-label">Oldest Living</div>
           <div className="stat-box-value">
             {analysis.oldestLivingActor
               ? `${analysis.oldestLivingActor.ageYears} yrs`
@@ -435,7 +435,7 @@ export const ScoreHero: React.FC<ScoreHeroProps> = ({
         </div>
 
         <div {...clickableProps(analysis.youngestLivingActor?.id)}>
-          <div className="stat-box-label">Youngest Living Actor</div>
+          <div className="stat-box-label">Youngest Living</div>
           <div className="stat-box-value">
             {analysis.youngestLivingActor
               ? `${analysis.youngestLivingActor.ageYears} yrs`
@@ -449,7 +449,7 @@ export const ScoreHero: React.FC<ScoreHeroProps> = ({
         </div>
 
         <div {...clickableProps(analysis.mostRecentlyDeceasedActor?.id)}>
-          <div className="stat-box-label">Most Recently Deceased</div>
+          <div className="stat-box-label">Latest Deceased</div>
           <div className="stat-box-value">
             {analysis.mostRecentlyDeceasedActor
               ? analysis.mostRecentlyDeceasedActor.formattedDeathDate
@@ -463,7 +463,7 @@ export const ScoreHero: React.FC<ScoreHeroProps> = ({
         </div>
 
         <div {...clickableProps(youngestAtRelease?.actor.id)}>
-          <div className="stat-box-label">Youngest Actor at Release</div>
+          <div className="stat-box-label">Youngest at Release</div>
           <div className="stat-box-value">
             {youngestAtRelease ? `${youngestAtRelease.age} yrs` : '—'}
           </div>
@@ -473,7 +473,7 @@ export const ScoreHero: React.FC<ScoreHeroProps> = ({
         </div>
 
         <div {...clickableProps(oldestAtRelease?.actor.id)}>
-          <div className="stat-box-label">Oldest Actor at Release</div>
+          <div className="stat-box-label">Oldest at Release</div>
           <div className="stat-box-value">
             {oldestAtRelease ? `${oldestAtRelease.age} yrs` : '—'}
           </div>
