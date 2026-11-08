@@ -640,6 +640,7 @@ export function App() {
               hasVoiceActors={hasVoiceActors}
               highlightedActorId={highlightedActorId}
               onSelectActor={setSelectedActorForModal}
+              releaseYear={activeWork.releaseYear}
             />
           </>
         ) : null}

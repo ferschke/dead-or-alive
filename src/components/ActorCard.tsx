@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import type { EvaluatedActor } from '../types/media';
+import { parseIsoDate } from '../utils/vitalityCalculator';
 
 interface ActorCardProps {
   actor: EvaluatedActor;
   isHighlighted?: boolean;
   onSelectActor?: (actor: EvaluatedActor) => void;
+  releaseYear?: number | null;
 }
 
 function getInitials(name: string): string {
@@ -18,6 +20,7 @@ export const ActorCard: React.FC<ActorCardProps> = ({
   actor,
   isHighlighted = false,
   onSelectActor,
+  releaseYear,
 }) => {
   const [imgError, setImgError] = useState(false);
   const isAlive = actor.status === 'alive';
@@ -29,6 +32,17 @@ export const ActorCard: React.FC<ActorCardProps> = ({
     : actor.ageYears !== null
     ? `Died at ${actor.ageYears}`
     : 'Deceased';
+
+  const birthYear = parseIsoDate(actor.birthDate, actor.birthPrecision)?.year;
+  const deathYear = parseIsoDate(actor.deathDate, actor.deathPrecision)?.year;
+  const ageAtRelease =
+    releaseYear && birthYear !== undefined
+      ? releaseYear - birthYear
+      : null;
+  const showAgeAtRelease =
+    ageAtRelease !== null &&
+    ageAtRelease >= 0 &&
+    (deathYear === undefined || releaseYear! <= deathYear);
 
   const dateLine = isAlive
     ? `b. ${actor.formattedBirthDate}`
@@ -116,6 +130,17 @@ export const ActorCard: React.FC<ActorCardProps> = ({
               </span>
             )}
         </div>
+
+        {showAgeAtRelease && (
+          <div
+            className="actor-dates-row"
+            title="Based on release year; may be off by one year"
+          >
+            <span>
+              Age at release ({releaseYear}): {ageAtRelease}
+            </span>
+          </div>
+        )}
       </div>
     </article>
   );

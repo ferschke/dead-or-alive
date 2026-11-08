@@ -22,6 +22,7 @@ interface CastSplitViewProps {
   hasVoiceActors: boolean;
   highlightedActorId: string | null;
   onSelectActor: (actor: EvaluatedActor) => void;
+  releaseYear?: number | null;
 }
 
 export const CastSplitView: React.FC<CastSplitViewProps> = ({
@@ -37,6 +38,7 @@ export const CastSplitView: React.FC<CastSplitViewProps> = ({
   hasVoiceActors,
   highlightedActorId,
   onSelectActor,
+  releaseYear,
 }) => {
   const filterTerm = actorFilterQuery.trim().toLowerCase();
 
@@ -181,6 +183,7 @@ export const CastSplitView: React.FC<CastSplitViewProps> = ({
                     actor={actor}
                     isHighlighted={highlightedActorId === actor.id}
                     onSelectActor={onSelectActor}
+                    releaseYear={releaseYear}
                   />
                 ))}
               </div>
@@ -214,6 +217,7 @@ export const CastSplitView: React.FC<CastSplitViewProps> = ({
                     actor={actor}
                     isHighlighted={highlightedActorId === actor.id}
                     onSelectActor={onSelectActor}
+                    releaseYear={releaseYear}
                   />
                 ))}
               </div>
@@ -228,6 +232,7 @@ export const CastSplitView: React.FC<CastSplitViewProps> = ({
               actor={actor}
               isHighlighted={highlightedActorId === actor.id}
               onSelectActor={onSelectActor}
+                    releaseYear={releaseYear}
             />
           ))}
         </div>
