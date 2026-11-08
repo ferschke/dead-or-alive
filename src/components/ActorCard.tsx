@@ -102,9 +102,27 @@ export const ActorCard: React.FC<ActorCardProps> = ({
             {actor.name}
           </a>
 
-          <span className={`actor-age-pill ${actor.status}`}>
-            {ageBadgeText}
-          </span>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-end',
+              gap: '0.25rem',
+              flexShrink: 0,
+            }}
+          >
+            <span className={`actor-age-pill ${actor.status}`}>
+              {ageBadgeText}
+            </span>
+            {showAgeAtRelease && (
+              <span
+                className="actor-age-pill release"
+                title="Based on release year; may be off by one year"
+              >
+                {`Age at release · ${ageAtRelease}`}
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="actor-character">
@@ -130,17 +148,6 @@ export const ActorCard: React.FC<ActorCardProps> = ({
               </span>
             )}
         </div>
-
-        {showAgeAtRelease && (
-          <div style={{ marginTop: '0.3rem' }}>
-            <span
-              className="actor-age-pill release"
-              title="Based on release year; may be off by one year"
-            >
-              {`Age at release · ${ageAtRelease}`}
-            </span>
-          </div>
-        )}
       </div>
     </article>
   );
