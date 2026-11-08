@@ -420,20 +420,6 @@ export const ScoreHero: React.FC<ScoreHeroProps> = ({
           </div>
         </div>
 
-        <div {...clickableProps(analysis.oldestLivingActor?.id)}>
-          <div className="stat-box-label">Oldest Living</div>
-          <div className="stat-box-value">
-            {analysis.oldestLivingActor
-              ? `${analysis.oldestLivingActor.ageYears} yrs`
-              : '—'}
-          </div>
-          <div className="stat-box-sub">
-            {analysis.oldestLivingActor
-              ? analysis.oldestLivingActor.name
-              : 'None'}
-          </div>
-        </div>
-
         <div {...clickableProps(analysis.youngestLivingActor?.id)}>
           <div className="stat-box-label">Youngest Living</div>
           <div className="stat-box-value">
@@ -444,6 +430,20 @@ export const ScoreHero: React.FC<ScoreHeroProps> = ({
           <div className="stat-box-sub">
             {analysis.youngestLivingActor
               ? analysis.youngestLivingActor.name
+              : 'None'}
+          </div>
+        </div>
+
+        <div {...clickableProps(analysis.oldestLivingActor?.id)}>
+          <div className="stat-box-label">Oldest Living</div>
+          <div className="stat-box-value">
+            {analysis.oldestLivingActor
+              ? `${analysis.oldestLivingActor.ageYears} yrs`
+              : '—'}
+          </div>
+          <div className="stat-box-sub">
+            {analysis.oldestLivingActor
+              ? analysis.oldestLivingActor.name
               : 'None'}
           </div>
         </div>
