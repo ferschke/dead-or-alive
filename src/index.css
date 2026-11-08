@@ -792,6 +792,17 @@ button {
   padding: 0.75rem 0.95rem;
 }
 
+.stat-box.clickable {
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.stat-box.clickable:hover,
+.stat-box.clickable:focus-visible {
+  border-color: var(--accent-gold);
+  outline: none;
+}
+
 .stat-box-label {
   font-size: 0.72rem;
   text-transform: uppercase;

@@ -10,6 +10,7 @@ import type {
   EvaluatedActor,
   MediaWork,
 } from '../types/media';
+import { parseIsoDate } from '../utils/vitalityCalculator';
 import { fetchOmdbRatings, type OmdbRatings } from '../services/omdbService';
 
 interface ScoreHeroProps {
@@ -118,6 +119,46 @@ export const ScoreHero: React.FC<ScoreHeroProps> = ({
 
   // Matrix tiles ordered Alive first, then Deceased
   const matrixActors = [...analysis.aliveActors, ...analysis.deceasedActors];
+
+  // Age at release (release year minus birth year), for actors with a known
+  // birth year who were born by release and (if deceased) alive in the release year.
+  const releaseAges = work.releaseYear
+    ? matrixActors
+        .map((actor) => {
+          const by = parseIsoDate(actor.birthDate, actor.birthPrecision)?.year;
+          const dy = parseIsoDate(actor.deathDate, actor.deathPrecision)?.year;
+          if (by === undefined) return null;
+          const age = work.releaseYear! - by;
+          if (age < 0 || (dy !== undefined && work.releaseYear! > dy)) {
+            return null;
+          }
+          return { actor, age };
+        })
+        .filter((x): x is { actor: EvaluatedActor; age: number } => x !== null)
+    : [];
+  const youngestAtRelease = releaseAges.reduce<
+    { actor: EvaluatedActor; age: number } | null
+  >((best, x) => (best === null || x.age < best.age ? x : best), null);
+  const oldestAtRelease = releaseAges.reduce<
+    { actor: EvaluatedActor; age: number } | null
+  >((best, x) => (best === null || x.age > best.age ? x : best), null);
+
+  const clickableProps = (actorId?: string) =>
+    actorId
+      ? {
+          className: 'stat-box clickable',
+          role: 'button' as const,
+          tabIndex: 0,
+          title: 'Click to locate this cast member below',
+          onClick: () => onSelectMatrixActor(actorId),
+          onKeyDown: (e: React.KeyboardEvent) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onSelectMatrixActor(actorId);
+            }
+          },
+        }
+      : { className: 'stat-box' };
 
   return (
     <section className="score-hero" aria-label="Movie or Show Vitality Summary">
@@ -379,7 +420,7 @@ export const ScoreHero: React.FC<ScoreHeroProps> = ({
           </div>
         </div>
 
-        <div className="stat-box">
+        <div {...clickableProps(analysis.oldestLivingActor?.id)}>
           <div className="stat-box-label">Oldest Living Actor</div>
           <div className="stat-box-value">
             {analysis.oldestLivingActor
@@ -393,7 +434,7 @@ export const ScoreHero: React.FC<ScoreHeroProps> = ({
           </div>
         </div>
 
-        <div className="stat-box">
+        <div {...clickableProps(analysis.youngestLivingActor?.id)}>
           <div className="stat-box-label">Youngest Living Actor</div>
           <div className="stat-box-value">
             {analysis.youngestLivingActor
@@ -407,7 +448,7 @@ export const ScoreHero: React.FC<ScoreHeroProps> = ({
           </div>
         </div>
 
-        <div className="stat-box">
+        <div {...clickableProps(analysis.mostRecentlyDeceasedActor?.id)}>
           <div className="stat-box-label">Most Recently Deceased</div>
           <div className="stat-box-value">
             {analysis.mostRecentlyDeceasedActor
@@ -422,6 +463,26 @@ export const ScoreHero: React.FC<ScoreHeroProps> = ({
                     : ''
                 }`
               : 'All cast members alive'}
+          </div>
+        </div>
+
+        <div {...clickableProps(youngestAtRelease?.actor.id)}>
+          <div className="stat-box-label">Youngest Actor at Release</div>
+          <div className="stat-box-value">
+            {youngestAtRelease ? `${youngestAtRelease.age} yrs` : '—'}
+          </div>
+          <div className="stat-box-sub">
+            {youngestAtRelease ? youngestAtRelease.actor.name : 'Unknown'}
+          </div>
+        </div>
+
+        <div {...clickableProps(oldestAtRelease?.actor.id)}>
+          <div className="stat-box-label">Oldest Actor at Release</div>
+          <div className="stat-box-value">
+            {oldestAtRelease ? `${oldestAtRelease.age} yrs` : '—'}
+          </div>
+          <div className="stat-box-sub">
+            {oldestAtRelease ? oldestAtRelease.actor.name : 'Unknown'}
           </div>
         </div>
       </div>
